@@ -1,0 +1,6 @@
+{
+  "name": "منصة التميز التعليمية",
+  "description": "منصة تعليمية عربية متكاملة للطلاب ولإدارة الأقسام والمصادر التعليمية والفيديوهات والملفات والاختبارات التفاعلية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

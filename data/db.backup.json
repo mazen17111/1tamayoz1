@@ -1,0 +1,77 @@
+{
+  "sections": [
+    {
+      "description": "شروحات واختبارات وملخصات الحساب، الجبر، الهندسة، المقارنات والإحصاء لاختبار القدرات العامة.",
+      "color": "blue",
+      "title": "القسم الكمي",
+      "iconName": "Calculator",
+      "order": 1,
+      "createdAt": "2026-01-10T10:00:00.000Z",
+      "id": "sec-quantitative",
+      "badge": "أساسي"
+    },
+    {
+      "title": "القسم اللفظي",
+      "id": "sec-verbal",
+      "createdAt": "2026-01-10T10:05:00.000Z",
+      "iconName": "BookOpen",
+      "color": "emerald",
+      "badge": "أساسي",
+      "description": "استيعاب المقروء، التناظر اللفظي، إكمال الجمل، الخطأ السياقي، والارتباط والاختلاف.",
+      "order": 2
+    }
+  ],
+  "resources": [
+    {
+      "order": 99,
+      "id": "res-1788613918123",
+      "iconName": "BookOpen",
+      "title": "بستطهالك كمي",
+      "description": "شرح لاصعب واهم مسائل الكمي",
+      "createdAt": "2026-09-05T13:11:58.123Z",
+      "sectionId": "sec-quantitative",
+      "level": "متوسط"
+    },
+    {
+      "description": "شرح لاصعب واهم مسائل اللفظي",
+      "sectionId": "sec-verbal",
+      "iconName": "BookOpen",
+      "level": "متوسط",
+      "createdAt": "2026-09-05T13:12:20.144Z",
+      "id": "res-1788613940144",
+      "order": 99,
+      "title": "بستطهالك لفظي"
+    },
+    {
+      "order": 99,
+      "id": "res-1788614020037",
+      "title": "اقسام ايهاب محلولة",
+      "createdAt": "2026-09-05T13:13:40.037Z",
+      "iconName": "BookOpen",
+      "level": "متوسط",
+      "description": "جميع اقسام ايهاب عبدالعظيم للفظي محلولة",
+      "sectionId": "sec-verbal"
+    }
+  ],
+  "videos": [],
+  "files": [],
+  "quizzes": [],
+  "liveStream": {
+    "isEnabled": false,
+    "title": "البث المباشر - منصة التميز التعليمية",
+    "streamUrl": "",
+    "description": "",
+    "scheduledTime": "",
+    "updatedAt": "2026-09-16T09:02:32.747Z"
+  },
+  "deletedIds": [
+    "res-1788645931006",
+    "vid-1788685980533",
+    "file-1788646035246",
+    "file-1788686146883",
+    "quiz-1788686005901",
+    "vid-1788842498895",
+    "vid-1788842825351"
+  ],
+  "updatedAt": "2026-09-08T06:50:12.853Z"
+}

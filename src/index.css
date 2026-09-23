@@ -1,0 +1,453 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Disable and completely remove video download controls across all browsers */
+video::-webkit-media-controls-download-button {
+  display: none !important;
+}
+video::-internal-media-controls-download-button {
+  display: none !important;
+}
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+/* Beautiful dark mode scrollbar and background refinements */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #0b1120;
+  color: #f1f5f9;
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Hide scrollbar for swipeable tabs and carousels while keeping scroll functionality */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* =========================================================================
+   Theme Shape & Appearance Presets
+   ========================================================================= */
+
+/* Border Radii Overrides */
+.radius-compact .rounded-3xl,
+.radius-compact .rounded-2xl,
+.radius-compact .rounded-xl {
+  border-radius: 0.375rem !important;
+}
+.radius-standard .rounded-3xl {
+  border-radius: 1rem !important;
+}
+.radius-standard .rounded-2xl {
+  border-radius: 0.75rem !important;
+}
+.radius-rounded .rounded-3xl {
+  border-radius: 1.75rem !important;
+}
+.radius-rounded .rounded-2xl {
+  border-radius: 1.25rem !important;
+}
+.radius-full .rounded-3xl {
+  border-radius: 2.25rem !important;
+}
+.radius-full .rounded-2xl {
+  border-radius: 1.75rem !important;
+}
+.radius-full .rounded-xl {
+  border-radius: 1.25rem !important;
+}
+
+/* Font Scales */
+.font-scale-normal {
+  font-size: 1rem;
+}
+.font-scale-large {
+  font-size: 1.0625rem;
+}
+.font-scale-large h1, .font-scale-large h2 {
+  font-size: 110% !important;
+}
+.font-scale-huge {
+  font-size: 1.125rem;
+}
+.font-scale-huge h1, .font-scale-huge h2 {
+  font-size: 120% !important;
+}
+
+/* Density Controls */
+.density-compact .section-card-spacing {
+  padding: 0.875rem !important;
+  gap: 0.5rem !important;
+}
+.density-comfortable .section-card-spacing {
+  padding: 1.25rem !important;
+  gap: 0.75rem !important;
+}
+.density-spacious .section-card-spacing {
+  padding: 1.75rem !important;
+  gap: 1.25rem !important;
+}
+
+/* =========================================================================
+   Theme Color Presets Overrides
+   ========================================================================= */
+
+/* Royal Blue Theme */
+.theme-royal-blue .bg-emerald-700,
+.theme-royal-blue .bg-emerald-600 {
+  background-color: #2563eb !important;
+}
+.theme-royal-blue .hover\:bg-emerald-800:hover,
+.theme-royal-blue .hover\:bg-emerald-700:hover {
+  background-color: #1d4ed8 !important;
+}
+.theme-royal-blue .text-emerald-700,
+.theme-royal-blue .text-emerald-800,
+.theme-royal-blue .text-emerald-600 {
+  color: #2563eb !important;
+}
+.theme-royal-blue .dark .text-emerald-400,
+.theme-royal-blue .dark .text-emerald-300 {
+  color: #60a5fa !important;
+}
+.theme-royal-blue .bg-emerald-50 {
+  background-color: #eff6ff !important;
+}
+.theme-royal-blue .bg-emerald-100 {
+  background-color: #dbeafe !important;
+}
+.theme-royal-blue .border-emerald-200 {
+  border-color: #bfdbfe !important;
+}
+.theme-royal-blue .from-emerald-600 {
+  --tw-gradient-from: #2563eb var(--tw-gradient-from-position) !important;
+}
+.theme-royal-blue .to-teal-500 {
+  --tw-gradient-to: #3b82f6 var(--tw-gradient-to-position) !important;
+}
+
+/* Creative Violet Theme */
+.theme-violet .bg-emerald-700,
+.theme-violet .bg-emerald-600 {
+  background-color: #7c3aed !important;
+}
+.theme-violet .hover\:bg-emerald-800:hover,
+.theme-violet .hover\:bg-emerald-700:hover {
+  background-color: #6d28d9 !important;
+}
+.theme-violet .text-emerald-700,
+.theme-violet .text-emerald-800,
+.theme-violet .text-emerald-600 {
+  color: #7c3aed !important;
+}
+.theme-violet .dark .text-emerald-400,
+.theme-violet .dark .text-emerald-300 {
+  color: #a78bfa !important;
+}
+.theme-violet .bg-emerald-50 {
+  background-color: #f5f3ff !important;
+}
+.theme-violet .bg-emerald-100 {
+  background-color: #ede9fe !important;
+}
+.theme-violet .border-emerald-200 {
+  border-color: #ddd6fe !important;
+}
+.theme-violet .from-emerald-600 {
+  --tw-gradient-from: #7c3aed var(--tw-gradient-from-position) !important;
+}
+.theme-violet .to-teal-500 {
+  --tw-gradient-to: #8b5cf6 var(--tw-gradient-to-position) !important;
+}
+
+/* Amber Gold Theme */
+.theme-amber-gold .bg-emerald-700,
+.theme-amber-gold .bg-emerald-600 {
+  background-color: #d97706 !important;
+}
+.theme-amber-gold .hover\:bg-emerald-800:hover,
+.theme-amber-gold .hover\:bg-emerald-700:hover {
+  background-color: #b45309 !important;
+}
+.theme-amber-gold .text-emerald-700,
+.theme-amber-gold .text-emerald-800,
+.theme-amber-gold .text-emerald-600 {
+  color: #d97706 !important;
+}
+.theme-amber-gold .dark .text-emerald-400,
+.theme-amber-gold .dark .text-emerald-300 {
+  color: #fbbf24 !important;
+}
+.theme-amber-gold .bg-emerald-50 {
+  background-color: #fffbeb !important;
+}
+.theme-amber-gold .bg-emerald-100 {
+  background-color: #fef3c7 !important;
+}
+.theme-amber-gold .border-emerald-200 {
+  border-color: #fde68a !important;
+}
+.theme-amber-gold .from-emerald-600 {
+  --tw-gradient-from: #d97706 var(--tw-gradient-from-position) !important;
+}
+.theme-amber-gold .to-teal-500 {
+  --tw-gradient-to: #f59e0b var(--tw-gradient-to-position) !important;
+}
+
+/* Ocean Cyan Theme */
+.theme-cyan-ocean .bg-emerald-700,
+.theme-cyan-ocean .bg-emerald-600 {
+  background-color: #0891b2 !important;
+}
+.theme-cyan-ocean .hover\:bg-emerald-800:hover,
+.theme-cyan-ocean .hover\:bg-emerald-700:hover {
+  background-color: #0e7490 !important;
+}
+.theme-cyan-ocean .text-emerald-700,
+.theme-cyan-ocean .text-emerald-800,
+.theme-cyan-ocean .text-emerald-600 {
+  color: #0891b2 !important;
+}
+.theme-cyan-ocean .dark .text-emerald-400,
+.theme-cyan-ocean .dark .text-emerald-300 {
+  color: #22d3ee !important;
+}
+.theme-cyan-ocean .bg-emerald-50 {
+  background-color: #ecfeff !important;
+}
+.theme-cyan-ocean .bg-emerald-100 {
+  background-color: #cffafe !important;
+}
+.theme-cyan-ocean .border-emerald-200 {
+  border-color: #a5f3fc !important;
+}
+.theme-cyan-ocean .from-emerald-600 {
+  --tw-gradient-from: #0891b2 var(--tw-gradient-from-position) !important;
+}
+.theme-cyan-ocean .to-teal-500 {
+  --tw-gradient-to: #06b6d4 var(--tw-gradient-to-position) !important;
+}
+
+/* Crimson Rose Theme */
+.theme-rose-crimson .bg-emerald-700,
+.theme-rose-crimson .bg-emerald-600 {
+  background-color: #e11d48 !important;
+}
+.theme-rose-crimson .hover\:bg-emerald-800:hover,
+.theme-rose-crimson .hover\:bg-emerald-700:hover {
+  background-color: #be123c !important;
+}
+.theme-rose-crimson .text-emerald-700,
+.theme-rose-crimson .text-emerald-800,
+.theme-rose-crimson .text-emerald-600 {
+  color: #e11d48 !important;
+}
+.theme-rose-crimson .dark .text-emerald-400,
+.theme-rose-crimson .dark .text-emerald-300 {
+  color: #fb7185 !important;
+}
+.theme-rose-crimson .bg-emerald-50 {
+  background-color: #fff1f2 !important;
+}
+.theme-rose-crimson .bg-emerald-100 {
+  background-color: #ffe4e6 !important;
+}
+.theme-rose-crimson .border-emerald-200 {
+  border-color: #fecdd3 !important;
+}
+.theme-rose-crimson .from-emerald-600 {
+  --tw-gradient-from: #e11d48 var(--tw-gradient-from-position) !important;
+}
+.theme-rose-crimson .to-teal-500 {
+  --tw-gradient-to: #f43f5e var(--tw-gradient-to-position) !important;
+}
+
+/* Modern Slate Theme */
+.theme-slate-modern .bg-emerald-700,
+.theme-slate-modern .bg-emerald-600 {
+  background-color: #334155 !important;
+}
+.theme-slate-modern .hover\:bg-emerald-800:hover,
+.theme-slate-modern .hover\:bg-emerald-700:hover {
+  background-color: #1e293b !important;
+}
+.theme-slate-modern .text-emerald-700,
+.theme-slate-modern .text-emerald-800,
+.theme-slate-modern .text-emerald-600 {
+  color: #334155 !important;
+}
+.theme-slate-modern .dark .text-emerald-400,
+.theme-slate-modern .dark .text-emerald-300 {
+  color: #cbd5e1 !important;
+}
+.theme-slate-modern .bg-emerald-50 {
+  background-color: #f8fafc !important;
+}
+.theme-slate-modern .bg-emerald-100 {
+  background-color: #f1f5f9 !important;
+}
+.theme-slate-modern .border-emerald-200 {
+  border-color: #cbd5e1 !important;
+}
+.theme-slate-modern .from-emerald-600 {
+  --tw-gradient-from: #334155 var(--tw-gradient-from-position) !important;
+}
+.theme-slate-modern .to-teal-500 {
+  --tw-gradient-to: #475569 var(--tw-gradient-to-position) !important;
+}
+
+/* Midnight Dark Theme */
+.theme-midnight-dark .bg-emerald-700,
+.theme-midnight-dark .bg-emerald-600 {
+  background-color: #0f172a !important;
+}
+.theme-midnight-dark .hover\:bg-emerald-800:hover,
+.theme-midnight-dark .hover\:bg-emerald-700:hover {
+  background-color: #020617 !important;
+}
+.theme-midnight-dark .text-emerald-700,
+.theme-midnight-dark .text-emerald-800,
+.theme-midnight-dark .text-emerald-600 {
+  color: #38bdf8 !important;
+}
+.theme-midnight-dark .dark .text-emerald-400,
+.theme-midnight-dark .dark .text-emerald-300 {
+  color: #38bdf8 !important;
+}
+.theme-midnight-dark .from-emerald-600 {
+  --tw-gradient-from: #0f172a var(--tw-gradient-from-position) !important;
+}
+.theme-midnight-dark .to-teal-500 {
+  --tw-gradient-to: #1e293b var(--tw-gradient-to-position) !important;
+}
+
+/* High Quality Dark Mode Card Highlights */
+.dark .dark-glow-card {
+  background: linear-gradient(180deg, rgba(20, 20, 25, 0.9) 0%, rgba(10, 10, 15, 0.95) 100%);
+  border-color: rgba(39, 39, 42, 0.8);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.8);
+}
+
+/* =========================================================================
+   Platform Logo Absolute Visibility Guarantee (All Colors & Themes)
+   ========================================================================= */
+.platform-logo-icon,
+#navbar-logo-btn .platform-logo-icon {
+  background: linear-gradient(135deg, #059669 0%, #10b981 50%, #0d9488 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.45) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.dark .platform-logo-icon,
+.dark #navbar-logo-btn .platform-logo-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 18px 0 rgba(16, 185, 129, 0.55), 0 0 0 1px rgba(16, 185, 129, 0.3) !important;
+  border: 1.5px solid rgba(110, 231, 183, 0.6) !important;
+}
+
+.platform-logo-icon svg,
+#navbar-logo-btn .platform-logo-icon svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* =========================================================================
+   Dark Mode: Pure Black Menus & Pure White Text (الوضع الليلي: قوائم سوداء وكلام أبيض)
+   ========================================================================= */
+.dark header,
+.dark nav,
+.dark .bg-slate-900,
+.dark .dark\:bg-slate-900,
+.dark .bg-slate-950,
+.dark .dark\:bg-slate-950 {
+  background-color: #000000 !important;
+}
+
+.dark .bg-slate-850,
+.dark .dark\:bg-slate-850,
+.dark .bg-slate-800,
+.dark .dark\:bg-slate-800 {
+  background-color: #0c0c0e !important;
+}
+
+.dark [role="menu"],
+.dark .dropdown-menu,
+.dark .mobile-nav-menu,
+.dark select,
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark textarea {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: #27272a !important;
+}
+
+/* Crisp pure white text for headings & labels in dark mode */
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6,
+.dark .text-slate-900,
+.dark .dark\:text-white,
+.dark .dark\:text-slate-100,
+.dark .dark\:text-slate-200 {
+  color: #ffffff !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-800,
+.dark .dark\:text-slate-300 {
+  color: #f4f4f5 !important;
+}
+
+.dark .text-slate-500,
+.dark .dark\:text-slate-400 {
+  color: #d4d4d8 !important;
+}
+
+/* Video & Media Loading Smoothness */
+video, iframe {
+  content-visibility: auto;
+}

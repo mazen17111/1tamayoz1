@@ -1,0 +1,53 @@
+{
+  "users": [
+    {
+      "id": "admin-1",
+      "name": "المشرف العام",
+      "email": "admin@tamayuz.edu",
+      "role": "admin",
+      "passwordHash": "259682d583064b8d3a8549667392a5fb:c3e2c1f87f4f6bd334a8a3f3d11a4c4a9887d889019cb78532681d490f8ffb77b24bc8eaca4274a199ef8ac3442b245ed681260c0bf1b75acc1c9eb4e84f22a8",
+      "createdAt": "2026-09-06T08:35:03.705Z",
+      "progress": {
+        "completedVideoIds": [],
+        "completedQuizAttempts": [],
+        "bookmarkedResourceIds": []
+      }
+    },
+    {
+      "id": "student-demo",
+      "name": "أحمد السعيد (طالب تجريبي)",
+      "email": "student@tamayuz.edu",
+      "role": "student",
+      "passwordHash": "5062c61e3ce597dae9c2579b3d7a54d3:486d0f4b189c1f116825509667bf66354e20c01171dbf63066c6e163e41ff148f4affb3d155393a6c572528c9b75a2cb6ddeb8a78c81c7f1dd31ab357e52cc29",
+      "createdAt": "2026-09-06T08:35:03.797Z",
+      "progress": {
+        "completedVideoIds": [
+          "vid-q1"
+        ],
+        "completedQuizAttempts": [
+          {
+            "id": "att-1",
+            "quizId": "quiz-quant-1",
+            "quizTitle": "اختبار تجريبي: العمليات الحسابية والنسب المئوية",
+            "sectionTitle": "القسم الكمي",
+            "resourceTitle": "أساسيات الحساب وقوانين الكسور والنسب",
+            "score": 3,
+            "totalQuestions": 3,
+            "percentage": 100,
+            "passed": true,
+            "userAnswers": [
+              1,
+              2,
+              0
+            ],
+            "timestamp": "2026-09-06T08:35:03.797Z"
+          }
+        ],
+        "bookmarkedResourceIds": [
+          "res-quant-arithmetic",
+          "res-verbal-reading"
+        ]
+      }
+    }
+  ]
+}

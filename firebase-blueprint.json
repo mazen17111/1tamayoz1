@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "entities": {
+    "Section": {
+      "title": "Section",
+      "description": "Educational section",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "iconName": { "type": "string" },
+        "badge": { "type": "string" },
+        "color": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title"]
+    },
+    "Resource": {
+      "title": "Resource",
+      "description": "Educational resource item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sectionId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sectionId", "title"]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "Educational video lesson",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sectionId": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "url": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "isFeatured": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sectionId", "title", "url"]
+    },
+    "File": {
+      "title": "File",
+      "description": "Educational file or PDF note",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sectionId": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "fileSize": { "type": "string" },
+        "fileType": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sectionId", "title", "fileUrl"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Educational quiz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sectionId": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "passingScore": { "type": "number" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "questions": { "type": "array" }
+      },
+      "required": ["id", "sectionId", "title", "questions"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Student user profile and progress",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "progress": { "type": "object" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "PlatformData": {
+      "title": "PlatformData",
+      "description": "Full platform snapshot",
+      "type": "object",
+      "properties": {
+        "sections": { "type": "array" },
+        "resources": { "type": "array" },
+        "videos": { "type": "array" },
+        "files": { "type": "array" },
+        "quizzes": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "sections/{sectionId}": {
+      "schema": "Section",
+      "description": "Educational sections"
+    },
+    "resources/{resourceId}": {
+      "schema": "Resource",
+      "description": "Educational resources"
+    },
+    "videos/{videoId}": {
+      "schema": "Video",
+      "description": "Video lessons"
+    },
+    "files/{fileId}": {
+      "schema": "File",
+      "description": "Educational files and PDFs"
+    },
+    "quizzes/{quizId}": {
+      "schema": "Quiz",
+      "description": "Interactive quizzes"
+    },
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Student users and progress"
+    },
+    "platform_data/{docId}": {
+      "schema": "PlatformData",
+      "description": "Full platform data snapshot"
+    }
+  }
+}

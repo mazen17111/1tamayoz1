@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Default-deny catch-all for all unmatched collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidSection(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200;
+    }
+
+    function isValidResource(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.sectionId is string && data.sectionId.size() > 0 && data.sectionId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200;
+    }
+
+    function isValidVideo(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.sectionId is string && data.sectionId.size() > 0 && data.sectionId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.url is string && data.url.size() > 0 && data.url.size() <= 2048;
+    }
+
+    function isValidFile(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.sectionId is string && data.sectionId.size() > 0 && data.sectionId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.fileUrl is string && data.fileUrl.size() > 0 && data.fileUrl.size() <= 2048;
+    }
+
+    function isValidQuiz(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.sectionId is string && data.sectionId.size() > 0 && data.sectionId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.questions is list && data.questions.size() <= 250;
+    }
+
+    function isValidUser(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 150;
+    }
+
+    function isValidPlatformData(data) {
+      return (data.sections is list) || (data.updatedAt is string);
+    }
+
+    // Educational content collections: accessible for reading by students/visitors
+    match /sections/{sectionId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(sectionId) && isValidSection(incoming());
+      allow delete: if isValidId(sectionId);
+    }
+
+    match /resources/{resourceId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(resourceId) && isValidResource(incoming());
+      allow delete: if isValidId(resourceId);
+    }
+
+    match /videos/{videoId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(videoId) && isValidVideo(incoming());
+      allow delete: if isValidId(videoId);
+    }
+
+    match /files/{fileId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(fileId) && isValidFile(incoming());
+      allow delete: if isValidId(fileId);
+    }
+
+    match /quizzes/{quizId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(quizId) && isValidQuiz(incoming());
+      allow delete: if isValidId(quizId);
+    }
+
+    match /users/{userId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(userId) && isValidUser(incoming());
+      allow delete: if isValidId(userId);
+    }
+
+    match /platform_data/{docId} {
+      allow get: if true;
+      allow create, update: if isValidId(docId) && isValidPlatformData(incoming());
+      allow delete: if isValidId(docId);
+    }
+
+    // Health check / connection test collection
+    match /test/{docId} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+  }
+}
