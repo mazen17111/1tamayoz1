@@ -286,7 +286,10 @@ export const apiService = {
       : defaultPlatformSettings.announcement;
 
     const localSavedLayout = typeof window !== 'undefined' ? (localStorage.getItem('tamayuz_layout_preset') as PlatformLayoutPreset | null) : null;
-    const finalLayoutPreset: PlatformLayoutPreset = (resolvedTheme?.layoutPreset || localSavedLayout || defaultPlatformSettings.theme.layoutPreset || 'classic') as PlatformLayoutPreset;
+    let finalLayoutPreset: PlatformLayoutPreset = (resolvedTheme?.layoutPreset || localSavedLayout || defaultPlatformSettings.theme.layoutPreset || 'sidebar-split-right') as PlatformLayoutPreset;
+    if (!finalLayoutPreset || finalLayoutPreset === 'classic') {
+      finalLayoutPreset = 'sidebar-split-right';
+    }
     if (typeof window !== 'undefined' && finalLayoutPreset) {
       try {
         localStorage.setItem('tamayuz_layout_preset', finalLayoutPreset);

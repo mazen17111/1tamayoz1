@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlatformData, StudentUser, Quiz, VideoItem, QuizAttempt, FileItem } from './types';
+import { PlatformData, StudentUser, Quiz, VideoItem, QuizAttempt, FileItem, PlatformLayoutPreset } from './types';
 import { initialPlatformData } from './defaultData';
 import { apiService } from './services/api';
 import { Navbar } from './components/Navbar';
@@ -39,6 +39,9 @@ export default function App() {
       }
       if (savedPresetRaw && effectiveTheme) {
         effectiveTheme = { ...effectiveTheme, layoutPreset: savedPresetRaw as any };
+      }
+      if (!effectiveTheme?.layoutPreset || (effectiveTheme.layoutPreset as string) === 'classic') {
+        effectiveTheme = { ...(effectiveTheme || {}), layoutPreset: 'sidebar-split-right' } as any;
       }
       if (cached && Array.isArray(cached.sections) && cached.sections.length > 0) {
         return {
@@ -494,11 +497,14 @@ export default function App() {
   const savedThemeRaw = typeof window !== 'undefined' ? localStorage.getItem('tamayuz_platform_theme') : null;
   const savedThemeConfig = savedThemeRaw ? (() => { try { return JSON.parse(savedThemeRaw); } catch { return null; } })() : null;
 
-  const layoutPreset: any =
+  const rawLayoutPreset =
     platformData.settings?.theme?.layoutPreset ||
     savedLayoutPreset ||
-    savedThemeConfig?.layoutPreset ||
-    'classic';
+    savedThemeConfig?.layoutPreset;
+
+  const layoutPreset: PlatformLayoutPreset = (rawLayoutPreset && rawLayoutPreset !== 'classic')
+    ? (rawLayoutPreset as PlatformLayoutPreset)
+    : 'sidebar-split-right';
 
   const themePreset = savedThemeConfig?.preset || platformData.settings?.theme?.preset || 'emerald';
   const borderRadius = savedThemeConfig?.borderRadius || platformData.settings?.theme?.borderRadius || 'standard';

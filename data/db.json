@@ -33,7 +33,7 @@
       "fontScale": "base",
       "cardStyle": "bordered",
       "sectionsLayout": "grid-3",
-      "layoutPreset": "classic",
+      "layoutPreset": "sidebar-split-right",
       "customLayoutOrder": {
         "desktop": [
           "sections",

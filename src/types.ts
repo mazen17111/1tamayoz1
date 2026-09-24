@@ -70,7 +70,7 @@ export interface SectionItem {
   description: string;
   iconName: string;
   badge?: string;
-  color: 'emerald' | 'blue' | 'indigo' | 'amber' | 'rose' | 'teal';
+  color?: 'emerald' | 'blue' | 'indigo' | 'amber' | 'rose' | 'teal' | string;
   order: number;
   createdAt: string;
 }

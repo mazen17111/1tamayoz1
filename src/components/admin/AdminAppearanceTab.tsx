@@ -272,7 +272,7 @@ export const AdminAppearanceTab: React.FC<AdminAppearanceTabProps> = ({
 }) => {
   const [themeState, setThemeState] = useState<PlatformThemeConfig>(() => ({
     preset: currentTheme?.preset || 'emerald',
-    layoutPreset: currentTheme?.layoutPreset || 'classic',
+    layoutPreset: currentTheme?.layoutPreset && currentTheme?.layoutPreset !== 'classic' ? currentTheme.layoutPreset : 'sidebar-split-right',
     customLayoutOrder: currentTheme?.customLayoutOrder || {
       desktop: ['announcements', 'sections', 'resources', 'video_stage'],
       mobile: ['announcements', 'sections', 'resources', 'video_stage'],
@@ -294,7 +294,7 @@ export const AdminAppearanceTab: React.FC<AdminAppearanceTabProps> = ({
       setThemeState((prev) => ({
         ...prev,
         ...currentTheme,
-        layoutPreset: currentTheme.layoutPreset || prev.layoutPreset || 'classic',
+        layoutPreset: currentTheme.layoutPreset && currentTheme.layoutPreset !== 'classic' ? currentTheme.layoutPreset : prev.layoutPreset || 'sidebar-split-right',
         preset: currentTheme.preset || prev.preset || 'emerald',
       }));
     }
@@ -379,7 +379,7 @@ export const AdminAppearanceTab: React.FC<AdminAppearanceTabProps> = ({
       name: 'الزمردي الأكاديمي الكلاسيكي',
       primaryColor: 'emerald',
       preset: 'emerald',
-      layoutPreset: 'classic',
+      layoutPreset: 'sidebar-split-right',
       customLayoutOrder: {
         desktop: ['announcements', 'sections', 'resources', 'video_stage'],
         mobile: ['announcements', 'sections', 'resources', 'video_stage'],
@@ -394,7 +394,7 @@ export const AdminAppearanceTab: React.FC<AdminAppearanceTabProps> = ({
     };
     try {
       localStorage.setItem('tamayuz_platform_theme', JSON.stringify(defaultTheme));
-      localStorage.setItem('tamayuz_layout_preset', 'classic');
+      localStorage.setItem('tamayuz_layout_preset', 'sidebar-split-right');
       window.dispatchEvent(new CustomEvent('tamayuz_theme_updated', { detail: defaultTheme }));
       const bc = new BroadcastChannel('tamayuz_theme');
       bc.postMessage({ type: 'THEME_UPDATED', theme: defaultTheme });
@@ -409,17 +409,20 @@ export const AdminAppearanceTab: React.FC<AdminAppearanceTabProps> = ({
 
   // Apply full theme state
   const handleApply = async () => {
+    const chosenPreset = themeState.layoutPreset && themeState.layoutPreset !== 'classic'
+      ? themeState.layoutPreset
+      : 'sidebar-split-right';
     const updatedTheme: PlatformThemeConfig = {
       ...themeState,
       id: themeState.preset || 'emerald',
       name: themeState.name || 'المظهر المخصص للمنصة',
       primaryColor: themeState.preset || 'emerald',
-      layoutPreset: themeState.layoutPreset || 'classic',
+      layoutPreset: chosenPreset,
       updatedAt: new Date().toISOString(),
     };
     try {
       localStorage.setItem('tamayuz_platform_theme', JSON.stringify(updatedTheme));
-      localStorage.setItem('tamayuz_layout_preset', updatedTheme.layoutPreset || 'classic');
+      localStorage.setItem('tamayuz_layout_preset', chosenPreset);
       window.dispatchEvent(new CustomEvent('tamayuz_theme_updated', { detail: updatedTheme }));
       const bc = new BroadcastChannel('tamayuz_theme');
       bc.postMessage({ type: 'THEME_UPDATED', theme: updatedTheme });
@@ -502,7 +505,10 @@ export const AdminAppearanceTab: React.FC<AdminAppearanceTabProps> = ({
         {/* 7 Miniature Layout Square Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3.5">
           {LAYOUT_PRESETS.map((preset) => {
-            const isSelected = (themeState.layoutPreset || 'classic') === preset.id;
+            const currentActivePreset = (themeState.layoutPreset && themeState.layoutPreset !== 'classic')
+              ? themeState.layoutPreset
+              : 'sidebar-split-right';
+            const isSelected = currentActivePreset === preset.id;
 
             return (
               <div

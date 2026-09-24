@@ -35,7 +35,7 @@ export const initialPlatformData: PlatformData = {
       "fontScale": "base",
       "cardStyle": "bordered",
       "sectionsLayout": "grid-3",
-      "layoutPreset": "classic",
+      "layoutPreset": "sidebar-split-right",
       "customLayoutOrder": {
         "desktop": [
           "sections",
@@ -95,7 +95,7 @@ export const defaultPlatformSettings: PlatformSettings = {
     "fontScale": "base",
     "cardStyle": "bordered",
     "sectionsLayout": "grid-3",
-    "layoutPreset": "classic",
+    "layoutPreset": "sidebar-split-right",
     "customLayoutOrder": {
       "desktop": [
         "sections",

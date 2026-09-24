@@ -174,13 +174,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const themeWithMeta: PlatformThemeConfig = {
         ...newTheme,
-        layoutPreset: newTheme.layoutPreset || 'classic',
+        layoutPreset: newTheme.layoutPreset && newTheme.layoutPreset !== 'classic' ? newTheme.layoutPreset : 'sidebar-split-right',
         updatedAt: new Date().toISOString(),
       };
       setPlatformTheme(themeWithMeta);
       try {
         localStorage.setItem('tamayuz_platform_theme', JSON.stringify(themeWithMeta));
-        localStorage.setItem('tamayuz_layout_preset', themeWithMeta.layoutPreset || 'classic');
+        localStorage.setItem('tamayuz_layout_preset', themeWithMeta.layoutPreset);
         window.dispatchEvent(new CustomEvent('tamayuz_theme_updated', { detail: themeWithMeta }));
         const bc = new BroadcastChannel('tamayuz_theme');
         bc.postMessage({ type: 'THEME_UPDATED', theme: themeWithMeta });
