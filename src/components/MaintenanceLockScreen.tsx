@@ -24,6 +24,7 @@ interface MaintenanceLockScreenProps {
   onOpenAuth?: (initialMode?: 'login' | 'register') => void;
   isIndividuallyBlocked?: boolean;
   isGuestLocked?: boolean;
+  isSubscriptionExpired?: boolean;
   // Backward compatibility alias
   lockMessage?: string;
   onOpenAdminAuth?: () => void;

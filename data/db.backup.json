@@ -1,58 +1,15 @@
 {
   "sections": [
     {
-      "description": "شروحات واختبارات وملخصات الحساب، الجبر، الهندسة، المقارنات والإحصاء لاختبار القدرات العامة.",
-      "color": "blue",
-      "title": "القسم الكمي",
-      "iconName": "Calculator",
+      "id": "sec-1",
+      "title": "القسم الأول",
+      "description": "وصف",
+      "iconName": "BookOpen",
       "order": 1,
-      "createdAt": "2026-01-10T10:00:00.000Z",
-      "id": "sec-quantitative",
-      "badge": "أساسي"
-    },
-    {
-      "title": "القسم اللفظي",
-      "id": "sec-verbal",
-      "createdAt": "2026-01-10T10:05:00.000Z",
-      "iconName": "BookOpen",
-      "color": "emerald",
-      "badge": "أساسي",
-      "description": "استيعاب المقروء، التناظر اللفظي، إكمال الجمل، الخطأ السياقي، والارتباط والاختلاف.",
-      "order": 2
+      "createdAt": "2026-09-24T00:00:00.000Z"
     }
   ],
-  "resources": [
-    {
-      "order": 99,
-      "id": "res-1788613918123",
-      "iconName": "BookOpen",
-      "title": "بستطهالك كمي",
-      "description": "شرح لاصعب واهم مسائل الكمي",
-      "createdAt": "2026-09-05T13:11:58.123Z",
-      "sectionId": "sec-quantitative",
-      "level": "متوسط"
-    },
-    {
-      "description": "شرح لاصعب واهم مسائل اللفظي",
-      "sectionId": "sec-verbal",
-      "iconName": "BookOpen",
-      "level": "متوسط",
-      "createdAt": "2026-09-05T13:12:20.144Z",
-      "id": "res-1788613940144",
-      "order": 99,
-      "title": "بستطهالك لفظي"
-    },
-    {
-      "order": 99,
-      "id": "res-1788614020037",
-      "title": "اقسام ايهاب محلولة",
-      "createdAt": "2026-09-05T13:13:40.037Z",
-      "iconName": "BookOpen",
-      "level": "متوسط",
-      "description": "جميع اقسام ايهاب عبدالعظيم للفظي محلولة",
-      "sectionId": "sec-verbal"
-    }
-  ],
+  "resources": [],
   "videos": [],
   "files": [],
   "quizzes": [],
@@ -64,6 +21,54 @@
     "scheduledTime": "",
     "updatedAt": "2026-09-16T09:02:32.747Z"
   },
+  "settings": {
+    "theme": {
+      "id": "emerald",
+      "preset": "emerald",
+      "name": "الزمردي الأكاديمي الكلاسيكي",
+      "primaryColor": "emerald",
+      "borderRadius": "xl",
+      "density": "normal",
+      "headerStyle": "standard",
+      "fontScale": "base",
+      "cardStyle": "bordered",
+      "sectionsLayout": "grid-3",
+      "layoutPreset": "classic",
+      "customLayoutOrder": {
+        "desktop": [
+          "sections",
+          "resources",
+          "video-stage"
+        ],
+        "mobile": [
+          "sections",
+          "resources",
+          "video-stage"
+        ]
+      }
+    },
+    "announcement": {
+      "isEnabled": false,
+      "message": "مرحباً بكم في منصة التميز التعليمية",
+      "type": "info",
+      "linkText": "",
+      "linkUrl": "",
+      "isDismissible": true,
+      "updatedAt": "2026-09-22T07:21:17.767Z"
+    },
+    "access": {
+      "isLocked": false,
+      "lockReason": "maintenance",
+      "lockMessage": "نحن حالياً في فترة صيانة وتحديثات للمنصة لتجهيز أفضل تجربة تعليمية لكم. سنعود للعمل قريباً!",
+      "subscriptionMessage": "انتهى اشتراكك أو تواصل مع المشرف لتفعيل الاشتراك أو اشترك الآن للوصول لكافة المحتويات.",
+      "whatsappNumber": "",
+      "whatsappMessage": "السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة التميز التعليمية",
+      "telegramUsername": "",
+      "subscriptionButtonText": "اشترك الآن أو فعّل اشتراكك عبر واتساب",
+      "allowedStudentEmails": [],
+      "updatedAt": "2026-09-24T06:54:28.949Z"
+    }
+  },
   "deletedIds": [
     "res-1788645931006",
     "vid-1788685980533",
@@ -73,5 +78,5 @@
     "vid-1788842498895",
     "vid-1788842825351"
   ],
-  "updatedAt": "2026-09-08T06:50:12.853Z"
+  "updatedAt": "2026-09-24T07:34:46.427Z"
 }

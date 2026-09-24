@@ -389,7 +389,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setTimeout(() => setLiveStreamSavedNotice(false), 4000);
     } catch (err) {
       console.error('Failed to update live stream:', err);
-      alert('حدث خطأ أثناء حفظ إعدادات البث المباشر.');
+      showToast('حدث خطأ أثناء حفظ إعدادات البث المباشر.');
     } finally {
       setIsSavingLiveStream(false);
     }
@@ -445,14 +445,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsSavingAll(true);
     try {
       const dataToSave = {
-        ...platformData,
+        sections: platformData?.sections || [],
+        resources: platformData?.resources || [],
+        videos: platformData?.videos || [],
+        files: platformData?.files || [],
+        quizzes: platformData?.quizzes || [],
         liveStream: liveStreamConfig,
         settings: {
-          ...platformData.settings,
+          ...(platformData?.settings || {}),
           theme: platformTheme,
           access: platformAccess,
           announcement: platformAnnouncement,
         },
+        deletedIds: platformData?.deletedIds || [],
+        updatedAt: new Date().toISOString()
       };
       if (platformTheme?.layoutPreset) {
         try {
@@ -462,10 +468,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
       const res = await apiService.saveFullPlatformData(dataToSave);
       setLastSavedTimestamp(res.timestamp || new Date().toISOString());
-      await onRefreshData();
-      showToast('تم حفظ البيانات بنجاح في قاعدة البيانات!');
+      try {
+        await onRefreshData();
+      } catch (refreshErr) {
+        console.warn('Background refresh after save warning:', refreshErr);
+      }
+      showToast(res.message || 'تم حفظ البيانات بنجاح في قاعدة البيانات!');
     } catch (err: any) {
-      showToast(err.message || 'فشل حفظ البيانات في قاعدة البيانات');
+      console.error('Save all permanently error:', err);
+      showToast(err?.message || 'فشل حفظ البيانات في قاعدة البيانات');
     } finally {
       setIsSavingAll(false);
     }

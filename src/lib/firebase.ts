@@ -264,46 +264,54 @@ export async function savePlatformDataToFirestore(data: PlatformData): Promise<{
     // 1. Write the aggregated master document in Firestore
     await setDoc(mainDocRef, cleanForFirestore(payload));
 
-    // 2. Also save granular documents in safe chunks of 400
-    const itemsToSet: { col: string; id: string; data: any }[] = [];
+    // 2. Also save granular documents in safe chunks of 200 without failing the master save
+    try {
+      const itemsToSet: { col: string; id: string; data: any }[] = [];
 
-    payload.sections.forEach((sec) => {
-      if (sec.id) itemsToSet.push({ col: COLLECTIONS.SECTIONS, id: sec.id, data: sec });
-    });
-    payload.resources.forEach((res) => {
-      if (res.id) itemsToSet.push({ col: COLLECTIONS.RESOURCES, id: res.id, data: res });
-    });
-    payload.videos.forEach((vid) => {
-      if (vid.id) itemsToSet.push({ col: COLLECTIONS.VIDEOS, id: vid.id, data: vid });
-    });
-    payload.files.forEach((f) => {
-      if (f.id) itemsToSet.push({ col: COLLECTIONS.FILES, id: f.id, data: f });
-    });
-    payload.quizzes.forEach((q) => {
-      if (q.id) itemsToSet.push({ col: COLLECTIONS.QUIZZES, id: q.id, data: q });
-    });
-
-    const chunkSize = 400;
-    for (let i = 0; i < itemsToSet.length; i += chunkSize) {
-      const chunk = itemsToSet.slice(i, i + chunkSize);
-      const batch = writeBatch(db);
-      chunk.forEach((item) => {
-        batch.set(doc(db, item.col, item.id), cleanForFirestore(item.data), { merge: true });
+      payload.sections.forEach((sec) => {
+        if (sec.id) itemsToSet.push({ col: COLLECTIONS.SECTIONS, id: sec.id, data: sec });
       });
-      await batch.commit();
+      payload.resources.forEach((res) => {
+        if (res.id) itemsToSet.push({ col: COLLECTIONS.RESOURCES, id: res.id, data: res });
+      });
+      payload.videos.forEach((vid) => {
+        if (vid.id) itemsToSet.push({ col: COLLECTIONS.VIDEOS, id: vid.id, data: vid });
+      });
+      payload.files.forEach((f) => {
+        if (f.id) itemsToSet.push({ col: COLLECTIONS.FILES, id: f.id, data: f });
+      });
+      payload.quizzes.forEach((q) => {
+        if (q.id) itemsToSet.push({ col: COLLECTIONS.QUIZZES, id: q.id, data: q });
+      });
+
+      const chunkSize = 200;
+      for (let i = 0; i < itemsToSet.length; i += chunkSize) {
+        const chunk = itemsToSet.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach((item) => {
+          batch.set(doc(db, item.col, item.id), cleanForFirestore(item.data), { merge: true });
+        });
+        await batch.commit();
+      }
+    } catch (granularError) {
+      console.warn('[Firestore] Granular write warning (master doc already secured):', granularError);
     }
 
-    // 3. Purge all deleted documents from granular collections so they can never return
+    // 3. Purge deleted documents from granular collections in background
     if (finalDeletedIds.length > 0) {
-      const deletePromises: Promise<any>[] = [];
-      for (const delId of finalDeletedIds) {
-        deletePromises.push(deleteDoc(doc(db, COLLECTIONS.SECTIONS, delId)).catch(() => {}));
-        deletePromises.push(deleteDoc(doc(db, COLLECTIONS.RESOURCES, delId)).catch(() => {}));
-        deletePromises.push(deleteDoc(doc(db, COLLECTIONS.VIDEOS, delId)).catch(() => {}));
-        deletePromises.push(deleteDoc(doc(db, COLLECTIONS.FILES, delId)).catch(() => {}));
-        deletePromises.push(deleteDoc(doc(db, COLLECTIONS.QUIZZES, delId)).catch(() => {}));
-      }
-      await Promise.allSettled(deletePromises);
+      setTimeout(async () => {
+        try {
+          const deletePromises: Promise<any>[] = [];
+          for (const delId of finalDeletedIds) {
+            deletePromises.push(deleteDoc(doc(db, COLLECTIONS.SECTIONS, delId)).catch(() => {}));
+            deletePromises.push(deleteDoc(doc(db, COLLECTIONS.RESOURCES, delId)).catch(() => {}));
+            deletePromises.push(deleteDoc(doc(db, COLLECTIONS.VIDEOS, delId)).catch(() => {}));
+            deletePromises.push(deleteDoc(doc(db, COLLECTIONS.FILES, delId)).catch(() => {}));
+            deletePromises.push(deleteDoc(doc(db, COLLECTIONS.QUIZZES, delId)).catch(() => {}));
+          }
+          await Promise.allSettled(deletePromises);
+        } catch {}
+      }, 0);
     }
 
     return {

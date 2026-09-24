@@ -731,7 +731,7 @@ startxref
   });
 
   // Save full platform data (Explicit permanent save by Admin)
-  app.post('/api/admin/save-full-data', (req, res) => {
+  app.post(['/api/admin/save-full-data', '/api/data', '/api/platform-data', '/api/save-data'], (req, res) => {
     try {
       const incoming = req.body;
       if (!incoming || typeof incoming !== 'object') {
@@ -739,11 +739,11 @@ startxref
       }
 
       const current = loadPlatformData();
-      const newSections = Array.isArray(incoming.sections) ? incoming.sections : current.sections;
-      const newResources = Array.isArray(incoming.resources) ? incoming.resources : current.resources;
-      const newVideos = Array.isArray(incoming.videos) ? incoming.videos : current.videos;
-      const newFiles = Array.isArray(incoming.files) ? incoming.files : current.files;
-      const newQuizzes = Array.isArray(incoming.quizzes) ? incoming.quizzes : current.quizzes;
+      const newSections = Array.isArray(incoming.sections) ? incoming.sections : (Array.isArray(current.sections) ? current.sections : []);
+      const newResources = Array.isArray(incoming.resources) ? incoming.resources : (Array.isArray(current.resources) ? current.resources : []);
+      const newVideos = Array.isArray(incoming.videos) ? incoming.videos : (Array.isArray(current.videos) ? current.videos : []);
+      const newFiles = Array.isArray(incoming.files) ? incoming.files : (Array.isArray(current.files) ? current.files : []);
+      const newQuizzes = Array.isArray(incoming.quizzes) ? incoming.quizzes : (Array.isArray(current.quizzes) ? current.quizzes : []);
 
       const incomingDeleted = Array.isArray(incoming.deletedIds) ? incoming.deletedIds : [];
       const currentDeleted = Array.isArray(current.deletedIds) ? current.deletedIds : [];
@@ -761,11 +761,11 @@ startxref
       const deletedSet = new Set(finalDeleted);
 
       platformData = {
-        sections: newSections.filter(s => !deletedSet.has(s.id)),
-        resources: newResources.filter(r => !deletedSet.has(r.id)),
-        videos: newVideos.filter(v => !deletedSet.has(v.id)),
-        files: newFiles.filter(f => !deletedSet.has(f.id)),
-        quizzes: newQuizzes.filter(q => !deletedSet.has(q.id)),
+        sections: newSections.filter(s => Boolean(s && s.id && !deletedSet.has(s.id))),
+        resources: newResources.filter(r => Boolean(r && r.id && !deletedSet.has(r.id))),
+        videos: newVideos.filter(v => Boolean(v && v.id && !deletedSet.has(v.id))),
+        files: newFiles.filter(f => Boolean(f && f.id && !deletedSet.has(f.id))),
+        quizzes: newQuizzes.filter(q => Boolean(q && q.id && !deletedSet.has(q.id))),
         liveStream: incoming.liveStream || current.liveStream || {
           isEnabled: false,
           title: 'البث المباشر - منصة التميز التعليمية',

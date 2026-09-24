@@ -56,7 +56,10 @@ export interface ResourceItem {
   title: string;
   description: string;
   iconName?: string;
-  level: 'مبتدئ' | 'متوسط' | 'متقدم' | 'شامل';
+  level?: 'مبتدئ' | 'متوسط' | 'متقدم' | 'شامل';
+  badge?: string;
+  color?: string;
+  type?: string;
   order: number;
   createdAt: string;
 }
