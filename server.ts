@@ -1834,6 +1834,111 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     });
   });
 
+  // Serve static assets in public folder (og-image.jpg, favicon, sitemap.xml, robots.txt)
+  const PUBLIC_DIR = path.join(process.cwd(), 'public');
+  if (fs.existsSync(PUBLIC_DIR)) {
+    app.use(express.static(PUBLIC_DIR, {
+      maxAge: '1d',
+      setHeaders: (res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      },
+    }));
+  }
+
+  // Direct Social Share Image handler (guarantees WhatsApp & Telegram mobile chats always fetch og-image seamlessly)
+  app.get(['/og-image.jpg', '/og-image.png', '/og-preview.jpg', '/og-banner.jpg'], (_req, res) => {
+    const imgPath = path.join(PUBLIC_DIR, 'og-image.jpg');
+    if (fs.existsSync(imgPath)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.sendFile(imgPath);
+    }
+    return res.status(404).end();
+  });
+
+  // Dedicated Social Share & Mobile Crawler Handler (Telegram, WhatsApp, Facebook, Twitter, iMessage)
+  // Ensures when users send the link in chat, rich cards with image, title, and description are generated instantly
+  app.use((req, res, next) => {
+    const ua = (req.headers['user-agent'] || '').toLowerCase();
+    const isCrawler = /telegrambot|whatsapp|facebookexternalhit|twitterbot|linkedinbot|slackbot|skypeuripreview|applebot|googlebot|bingbot/i.test(ua);
+
+    if (isCrawler && req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+      const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
+      const host = (req.headers['x-forwarded-host'] as string) || req.headers['host'] || 'ais-pre-hexfzjhhlldwcvjp5w3jju-614527030930.europe-west2.run.app';
+      const baseUrl = `${proto}://${host}`;
+      const canonicalUrl = `${baseUrl}${req.path === '/' ? '' : req.path}`;
+      const ogImageUrl = `${baseUrl}/og-image.jpg`;
+
+      const title = 'منصة التميز التعليمية';
+      const desc = 'منصة تعليمية عربية متكاملة للطلاب ولإدارة الأقسام والمصادر التعليمية والفيديوهات والملفات والاختبارات التفاعلية';
+
+      const crawlerHtml = `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>${title}</title>
+  <meta name="description" content="${desc}">
+  <link rel="canonical" href="${canonicalUrl}">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 10v6M2 10l10-5 10 5-10 5z'/%3E%3Cpath d='M6 12v5c3 3 9 3 12 0v-5'/%3E%3C/svg%3E">
+
+  <!-- OpenGraph Metadata for WhatsApp, Telegram, Facebook, iMessage -->
+  <meta property="og:site_name" content="${title}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${canonicalUrl}">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${desc}">
+  <meta property="og:image" content="${ogImageUrl}">
+  <meta property="og:image:secure_url" content="${ogImageUrl}">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="${title}">
+  <meta property="og:locale" content="ar_AR">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="${canonicalUrl}">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${desc}">
+  <meta name="twitter:image" content="${ogImageUrl}">
+
+  <!-- Preserved Google Site Verification -->
+  <meta name="google-site-verification" content="D5ZT5yqOkOi2t0gcdpxMiNgXnDSRJvfV7gT9guY3Qgk">
+  <meta name="google-site-verification" content="HQN6oJTAAmDz1TiZ0JpqvS2FHF0Z7uG-uXnTR-v923I">
+  <meta name="google-site-verification" content="vdaClYuAkfz0rh6zbVVRRZ2FzDEVMNmBAmUfo063YSU">
+
+  <!-- Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "EducationalOrganization",
+    "name": "${title}",
+    "description": "${desc}",
+    "url": "${baseUrl}",
+    "logo": "${ogImageUrl}",
+    "image": "${ogImageUrl}"
+  }
+  </script>
+</head>
+<body style="font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; padding: 20px;">
+  <div style="max-width: 480px;">
+    <h1 style="font-size: 24px; margin-bottom: 12px; color: #10b981;">${title}</h1>
+    <p style="color: #94a3b8; font-size: 15px; line-height: 1.6;">${desc}</p>
+    <p style="margin-top: 20px;"><a href="${canonicalUrl}" style="background: #059669; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 15px; display: inline-block;">دخول المنصة التعليمية</a></p>
+  </div>
+</body>
+</html>`;
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.send(crawlerHtml);
+    }
+    next();
+  });
+
   // Vite middleware for development vs static for production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -1841,6 +1946,17 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       appType: 'spa',
     });
     app.use(vite.middlewares);
+    // Bulletproof dev SPA fallback: ensures mobile browsers, custom queries, & non-root paths always load smoothly
+    app.get('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      try {
+        let template = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).end(template);
+      } catch (e) {
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));

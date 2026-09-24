@@ -5,13 +5,35 @@
     <meta name="google-site-verification" content="HQN6oJTAAmDz1TiZ0JpqvS2FHF0Z7uG-uXnTR-v923I" />
     <meta name="google-site-verification" content="vdaClYuAkfz0rh6zbVVRRZ2FzDEVMNmBAmUfo063YSU" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 10v6M2 10l10-5 10 5-10 5z'/%3E%3Cpath d='M6 12v5c3 3 9 3 12 0v-5'/%3E%3C/svg%3E" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#059669" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="منصة التميز التعليمية" />
+    <meta name="format-detection" content="telephone=no" />
+
     <title>منصة التميز التعليمية</title>
     <meta name="description" content="منصة تعليمية عربية متكاملة للطلاب ولإدارة الأقسام والمصادر التعليمية والفيديوهات والملفات والاختبارات التفاعلية" />
+
+    <!-- OpenGraph Social Share Preview (WhatsApp, Telegram, Facebook, Twitter, iMessage) -->
+    <meta property="og:site_name" content="منصة التميز التعليمية" />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="منصة التميز التعليمية" />
     <meta property="og:description" content="منصة تعليمية عربية متكاملة للطلاب ولإدارة الأقسام والمصادر التعليمية والفيديوهات والملفات والاختبارات التفاعلية" />
-    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-image.jpg" />
+    <meta property="og:image:secure_url" content="/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="شعار منصة التميز التعليمية" />
+    <meta property="og:locale" content="ar_AR" />
+
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="منصة التميز التعليمية" />
+    <meta name="twitter:description" content="منصة تعليمية عربية متكاملة للطلاب ولإدارة الأقسام والمصادر التعليمية والفيديوهات والملفات والاختبارات التفاعلية" />
+    <meta name="twitter:image" content="/og-image.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://fonts.googleapis.com">
@@ -20,6 +42,99 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
   </head>
   <body class="bg-slate-50 text-slate-800 antialiased font-['Cairo',sans-serif]">
+    <script>
+      /* Bulletproof storage and webview protection for Telegram, WhatsApp, and sandboxed mobile browsers */
+      (function() {
+        var memoryStore = {};
+
+        // 1. Wrap Storage prototype so direct method calls never throw SecurityError or QuotaExceeded
+        try {
+          if (typeof Storage !== 'undefined' && Storage.prototype) {
+            var origGet = Storage.prototype.getItem;
+            var origSet = Storage.prototype.setItem;
+            var origRem = Storage.prototype.removeItem;
+            var origClr = Storage.prototype.clear;
+
+            Storage.prototype.getItem = function(k) {
+              try {
+                return origGet.call(this, k);
+              } catch (e) {
+                return Object.prototype.hasOwnProperty.call(memoryStore, k) ? memoryStore[k] : null;
+              }
+            };
+
+            Storage.prototype.setItem = function(k, v) {
+              try {
+                origSet.call(this, k, v);
+              } catch (e) {
+                memoryStore[k] = String(v);
+              }
+            };
+
+            Storage.prototype.removeItem = function(k) {
+              try {
+                origRem.call(this, k);
+              } catch (e) {
+                delete memoryStore[k];
+              }
+            };
+
+            Storage.prototype.clear = function() {
+              try {
+                origClr.call(this);
+              } catch (e) {
+                memoryStore = {};
+              }
+            };
+          }
+        } catch (protoErr) {}
+
+        // 2. Test if window.localStorage is accessible; if not, safely polyfill
+        var works = false;
+        try {
+          var testKey = '__tamayuz_probe__';
+          window.localStorage.setItem(testKey, '1');
+          window.localStorage.removeItem(testKey);
+          works = true;
+        } catch (e) {
+          works = false;
+        }
+
+        if (!works) {
+          var poly = {
+            getItem: function(k) { return Object.prototype.hasOwnProperty.call(memoryStore, k) ? memoryStore[k] : null; },
+            setItem: function(k, v) { memoryStore[k] = String(v); },
+            removeItem: function(k) { delete memoryStore[k]; },
+            clear: function() { memoryStore = {}; },
+            get length() { return Object.keys(memoryStore).length; },
+            key: function(i) { return Object.keys(memoryStore)[i] || null; }
+          };
+          try {
+            Object.defineProperty(window, 'localStorage', { value: poly, configurable: true, writable: true });
+            Object.defineProperty(window, 'sessionStorage', { value: poly, configurable: true, writable: true });
+          } catch (ex) {
+            try { window.localStorage = poly; } catch (e2) {}
+            try { window.sessionStorage = poly; } catch (e3) {}
+          }
+        }
+
+        // 3. Polyfill window.matchMedia for older Android/iOS webview instances
+        if (typeof window.matchMedia !== 'function') {
+          window.matchMedia = function() {
+            return {
+              matches: false,
+              media: '',
+              onchange: null,
+              addListener: function() {},
+              removeListener: function() {},
+              addEventListener: function() {},
+              removeEventListener: function() {},
+              dispatchEvent: function() { return false; }
+            };
+          };
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

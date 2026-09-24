@@ -16,6 +16,8 @@ html, body {
   -webkit-tap-highlight-color: transparent;
   font-family: 'Cairo', system-ui, -apple-system, sans-serif;
   text-rendering: optimizeLegibility;
+  overscroll-behavior-y: contain; /* Prevents Telegram/WhatsApp in-app modal pull-to-dismiss */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Beautiful dark mode scrollbar and background refinements */

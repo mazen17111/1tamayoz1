@@ -645,6 +645,7 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
                 src={displayedVideo.videoUrl}
                 controls
                 preload="metadata"
+                playsInline
                 autoPlay
                 controlsList="nodownload"
                 onContextMenu={(e) => e.preventDefault()}

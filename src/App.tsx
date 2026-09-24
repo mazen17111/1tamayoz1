@@ -8,6 +8,8 @@ import { ResourceView } from './components/ResourceView';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { MaintenanceLockScreen } from './components/MaintenanceLockScreen';
 import { SplitStudioLayout } from './components/SplitStudioLayout';
+import { InAppBrowserBanner } from './components/InAppBrowserBanner';
+import { safeStorage } from './utils/safeStorage';
 
 // Lazy load heavy admin tools and interactive modals for ultra-fast initial page loading
 const QuizModal = lazy(() => import('./components/QuizModal').then(m => ({ default: m.QuizModal })));
@@ -31,8 +33,8 @@ export default function App() {
   const [platformData, setPlatformData] = useState<PlatformData>(() => {
     try {
       const cached = apiService.getCachedPlatformData();
-      const savedThemeRaw = typeof window !== 'undefined' ? localStorage.getItem('tamayuz_platform_theme') : null;
-      const savedPresetRaw = typeof window !== 'undefined' ? localStorage.getItem('tamayuz_layout_preset') : null;
+      const savedThemeRaw = typeof window !== 'undefined' ? safeStorage.getItem('tamayuz_platform_theme') : null;
+      const savedPresetRaw = typeof window !== 'undefined' ? safeStorage.getItem('tamayuz_layout_preset') : null;
       let effectiveTheme = initialPlatformData.settings?.theme;
       if (savedThemeRaw) {
         try {
@@ -65,7 +67,14 @@ export default function App() {
       return initialPlatformData;
     }
   });
-  const [currentUser, setCurrentUser] = useState<StudentUser | null>(null);
+  // Synchronous authorization resolution (0ms instant display - completely eliminates the 2s lock screen flash)
+  const [currentUser, setCurrentUser] = useState<StudentUser | null>(() => {
+    try {
+      return apiService.getCurrentStudent();
+    } catch {
+      return null;
+    }
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Navigation State
@@ -74,8 +83,10 @@ export default function App() {
   const [adminKey, setAdminKey] = useState<number>(0);
 
   const handleOpenAdmin = () => {
-    sessionStorage.removeItem('tamayuz_admin_token');
-    localStorage.removeItem('tamayuz_admin_token');
+    try {
+      sessionStorage.removeItem('tamayuz_admin_token');
+      safeStorage.removeItem('tamayuz_admin_token');
+    } catch {}
     setAdminKey((prev) => prev + 1);
     setIsAdminOpen(true);
     setSelectedSectionId(null);
@@ -83,18 +94,24 @@ export default function App() {
 
   // Theme state: dark / light
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('tamayuz_theme');
-    if (saved === 'dark' || saved === 'light') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    try {
+      const saved = safeStorage.getItem('tamayuz_theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
   });
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('tamayuz_theme', theme);
+    try {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      safeStorage.setItem('tamayuz_theme', theme);
+    } catch {}
   }, [theme]);
 
   // Real-time custom theme and layout sync across components and tabs
@@ -207,7 +224,11 @@ export default function App() {
     loadData();
     const student = apiService.getCurrentStudent();
     if (student) {
-      setCurrentUser(student);
+      setCurrentUser((prev) => {
+        if (!prev) return student;
+        if (prev.id === student.id && (prev as any).updatedAt === (student as any).updatedAt) return prev;
+        return student;
+      });
     }
 
     // Auto refresh when student returns to tab (debounced by 15s to keep device fast)
@@ -515,8 +536,8 @@ export default function App() {
   const showLockScreen = !isAdminOpen && (isGuestLocked || isIndividuallyBlocked || (isPlatformLocked && !isCurrentUserApproved));
 
   // Theme and layout configuration: instant resolution so saved layout appears immediately with 0 delay or flash
-  const savedLayoutPreset = typeof window !== 'undefined' ? localStorage.getItem('tamayuz_layout_preset') : null;
-  const savedThemeRaw = typeof window !== 'undefined' ? localStorage.getItem('tamayuz_platform_theme') : null;
+  const savedLayoutPreset = typeof window !== 'undefined' ? safeStorage.getItem('tamayuz_layout_preset') : null;
+  const savedThemeRaw = typeof window !== 'undefined' ? safeStorage.getItem('tamayuz_platform_theme') : null;
   const savedThemeConfig = savedThemeRaw ? (() => { try { return JSON.parse(savedThemeRaw); } catch { return null; } })() : null;
 
   const rawLayoutPreset =
@@ -536,6 +557,9 @@ export default function App() {
   return (
     <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 selection:bg-emerald-100 selection:text-emerald-900 font-['Cairo',sans-serif] transition-colors duration-200 overflow-x-hidden w-full max-w-full theme-${themePreset} radius-${borderRadius} density-${density} font-scale-${fontScale}`}>
       
+      {/* In-App Browser Helper (Telegram, WhatsApp, WebViews) */}
+      <InAppBrowserBanner onShowToast={showToast} />
+
       {/* Top Navigation */}
       <Navbar
         currentUser={currentUser}
@@ -783,9 +807,10 @@ export default function App() {
         {/* 6. External Quiz Confirmation Modal */}
         {externalQuizToConfirm && (
           <ExternalQuizConfirmModal
+            isOpen={true}
             quiz={externalQuizToConfirm}
-            onConfirm={handleConfirmExternalQuiz}
-            onCancel={() => setExternalQuizToConfirm(null)}
+            onConfirm={() => handleConfirmExternalQuiz(externalQuizToConfirm)}
+            onClose={() => setExternalQuizToConfirm(null)}
           />
         )}
       </Suspense>

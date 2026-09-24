@@ -500,7 +500,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setSecDescription(section.description);
       setSecIconName(section.iconName);
       setSecBadge(section.badge || '');
-      setSecColor(section.color);
+      setSecColor((section.color || 'emerald') as any);
     } else {
       setEditingSection(null);
       setSecTitle('');

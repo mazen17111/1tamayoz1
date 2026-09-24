@@ -286,7 +286,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
               </div>
               <button
                 type="button"
-                onClick={onOpenAuth}
+                onClick={() => onOpenAuth('login')}
                 className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs sm:text-sm border border-slate-600 transition-all flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <LogIn className="w-4 h-4 text-emerald-400" />

@@ -33,8 +33,12 @@ import {
   db
 } from '../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { safeStorage } from '../utils/safeStorage';
 
 const CURRENT_USER_KEY = 'tamayuz_current_user_v1';
+
+// In-memory student cache for 0ms instant authorization
+let inMemoryCurrentStudent: StudentUser | null = null;
 
 // In-memory cache for ultra-instant UI operations (0ms latency)
 let localCachedData: PlatformData | null = null;
@@ -47,7 +51,7 @@ export const apiService = {
     }
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('tamayuz_platform_data');
+        const stored = safeStorage.getItem('tamayuz_platform_data');
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
@@ -67,7 +71,7 @@ export const apiService = {
     localCachedData = data;
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('tamayuz_platform_data', JSON.stringify(data));
+        safeStorage.setItem('tamayuz_platform_data', JSON.stringify(data));
       } catch {}
     }
   },
@@ -106,8 +110,8 @@ export const apiService = {
 
     // Cache locally immediately so user data is never lost under any network circumstances
     try {
-      localStorage.setItem('tamayuz_platform_data', JSON.stringify(cleanData));
-      localStorage.setItem('tamayuz_last_saved', timestamp);
+      safeStorage.setItem('tamayuz_platform_data', JSON.stringify(cleanData));
+      safeStorage.setItem('tamayuz_last_saved', timestamp);
     } catch (lsErr) {
       console.warn('Local cache warning:', lsErr);
     }
@@ -262,9 +266,9 @@ export const apiService = {
     // Local storage theme preservation for zero-latency permanent theme consistency
     const localSavedTheme = (() => {
       try {
-        const item = localStorage.getItem('tamayuz_platform_theme');
+        const item = safeStorage.getItem('tamayuz_platform_theme');
         const theme = item ? JSON.parse(item) : null;
-        const preset = localStorage.getItem('tamayuz_layout_preset');
+        const preset = safeStorage.getItem('tamayuz_layout_preset');
         if (preset && theme) {
           theme.layoutPreset = preset;
         }
@@ -276,7 +280,7 @@ export const apiService = {
 
     const localSavedAnnouncement = (() => {
       try {
-        const item = localStorage.getItem('tamayuz_platform_announcement');
+        const item = safeStorage.getItem('tamayuz_platform_announcement');
         return item ? JSON.parse(item) : null;
       } catch {
         return null;
@@ -335,14 +339,14 @@ export const apiService = {
         })
       : defaultPlatformSettings.announcement;
 
-    const localSavedLayout = typeof window !== 'undefined' ? (localStorage.getItem('tamayuz_layout_preset') as PlatformLayoutPreset | null) : null;
+    const localSavedLayout = typeof window !== 'undefined' ? (safeStorage.getItem('tamayuz_layout_preset') as PlatformLayoutPreset | null) : null;
     let finalLayoutPreset: PlatformLayoutPreset = (resolvedTheme?.layoutPreset || localSavedLayout || defaultPlatformSettings.theme.layoutPreset || 'sidebar-split-right') as PlatformLayoutPreset;
     if (!finalLayoutPreset || finalLayoutPreset === 'classic') {
       finalLayoutPreset = 'sidebar-split-right';
     }
     if (typeof window !== 'undefined' && finalLayoutPreset) {
       try {
-        localStorage.setItem('tamayuz_layout_preset', finalLayoutPreset);
+        safeStorage.setItem('tamayuz_layout_preset', finalLayoutPreset);
       } catch {}
     }
 
@@ -1342,9 +1346,21 @@ export const apiService = {
   },
 
   getCurrentStudent(): StudentUser | null {
+    if (inMemoryCurrentStudent && (inMemoryCurrentStudent.id || inMemoryCurrentStudent.email)) {
+      return inMemoryCurrentStudent;
+    }
     try {
-      const raw = localStorage.getItem(CURRENT_USER_KEY);
-      if (raw) return JSON.parse(raw);
+      let raw = safeStorage.getItem(CURRENT_USER_KEY);
+      if (!raw) {
+        raw = safeStorage.getItem('tamayuz_current_user') || safeStorage.getItem('current_student');
+      }
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.id || parsed.email || parsed.name)) {
+          inMemoryCurrentStudent = parsed;
+          return parsed;
+        }
+      }
     } catch (e) {
       // ignore
     }
@@ -1352,10 +1368,17 @@ export const apiService = {
   },
 
   saveCurrentStudent(user: StudentUser | null) {
-    if (!user) {
-      localStorage.removeItem(CURRENT_USER_KEY);
-    } else {
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    inMemoryCurrentStudent = user;
+    try {
+      if (!user) {
+        safeStorage.removeItem(CURRENT_USER_KEY);
+        safeStorage.removeItem('tamayuz_current_user');
+        safeStorage.removeItem('current_student');
+      } else {
+        safeStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+      }
+    } catch (err) {
+      console.warn('Could not save current student to safeStorage:', err);
     }
   },
 

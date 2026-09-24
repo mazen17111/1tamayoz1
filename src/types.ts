@@ -16,6 +16,7 @@ export interface Quiz {
   description: string;
   timeLimitMinutes: number; // 0 for unlimited
   passingScorePercentage: number;
+  passingScore?: number;
   questions: Question[];
   createdAt: string;
   imageUrl?: string; // صورة للاختبار (غلاف أو توضيحية)
@@ -56,6 +57,7 @@ export interface ResourceItem {
   title: string;
   description: string;
   iconName?: string;
+  icon?: string;
   level?: 'مبتدئ' | 'متوسط' | 'متقدم' | 'شامل';
   badge?: string;
   color?: string;
@@ -69,6 +71,8 @@ export interface SectionItem {
   title: string;
   description: string;
   iconName: string;
+  icon?: string;
+  code?: string;
   badge?: string;
   color?: 'emerald' | 'blue' | 'indigo' | 'amber' | 'rose' | 'teal' | string;
   order: number;
@@ -76,11 +80,14 @@ export interface SectionItem {
 }
 
 export interface QuizAttemptQuestionDetail {
+  questionId?: string;
   questionText: string;
   imageUrl?: string;
   options: string[];
-  correctOptionIndex: number;
-  selectedOptionIndex: number;
+  correctOptionIndex?: number;
+  selectedOptionIndex?: number;
+  userAnswerIndex?: number;
+  correctAnswerIndex?: number;
   isCorrect: boolean;
   explanation?: string;
 }
@@ -150,16 +157,16 @@ export type PlatformLayoutPreset =
   | 'stacked-focus';     // 7. مسار التركيز المتسلسل: تدفق عمودي يركز على الدرس الحالي
 
 export interface PlatformThemeConfig {
-  id: PlatformThemeId;
+  id?: PlatformThemeId;
   preset?: PlatformThemeId;
-  name: string;
-  primaryColor: string; // Tailwind primary color name e.g. 'emerald', 'blue', 'violet', etc.
-  borderRadius: 'sm' | 'md' | 'lg' | 'xl' | 'full' | 'standard' | 'compact' | 'rounded'; // حجم استدارة الحواف
-  density: 'compact' | 'normal' | 'spacious' | 'comfortable'; // المسافات والأحجام
-  headerStyle: 'standard' | 'floating' | 'minimal' | 'glassmorphism' | 'gradient'; // نمط شريط التنقل
-  fontScale: 'sm' | 'base' | 'lg' | 'normal' | 'large' | 'huge'; // حجم الخطوط
-  cardStyle: 'bordered' | 'glass' | 'solid' | 'elevated'; // نمط البطاقات
-  sectionsLayout: 'grid-3' | 'grid-2' | 'list' | 'grid'; // شكل توزيع الأقسام
+  name?: string;
+  primaryColor?: string; // Tailwind primary color name e.g. 'emerald', 'blue', 'violet', etc.
+  borderRadius?: 'sm' | 'md' | 'lg' | 'xl' | 'full' | 'standard' | 'compact' | 'rounded'; // حجم استدارة الحواف
+  density?: 'compact' | 'normal' | 'spacious' | 'comfortable'; // المسافات والأحجام
+  headerStyle?: 'standard' | 'floating' | 'minimal' | 'glassmorphism' | 'gradient'; // نمط شريط التنقل
+  fontScale?: 'sm' | 'base' | 'lg' | 'normal' | 'large' | 'huge'; // حجم الخطوط
+  cardStyle?: 'bordered' | 'glass' | 'solid' | 'elevated' | string; // نمط البطاقات
+  sectionsLayout?: 'grid-3' | 'grid-2' | 'list' | 'grid'; // شكل توزيع الأقسام
   layoutPreset?: PlatformLayoutPreset; // الشكل الهيكلي الكامل للمنصة
   updatedAt?: string;
   customLayoutOrder?: {
