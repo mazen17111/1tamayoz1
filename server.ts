@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -299,6 +300,18 @@ function saveUsers(data: StoredUsers) {
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Ultra-fast HTTP response compression (Gzip / Deflate)
+  app.use(compression({
+    threshold: 1024,
+    filter: (req, res) => {
+      // Do not compress already compressed video files or streams
+      if (req.headers['range'] || req.url.includes('/video-stream') || req.url.match(/\.(mp4|webm|mov)$/i)) {
+        return false;
+      }
+      return compression.filter(req, res);
+    }
+  }));
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));

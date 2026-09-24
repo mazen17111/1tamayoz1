@@ -471,7 +471,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                   controls
                   autoPlay
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                   controlsList="nodownload"
                   onContextMenu={(e) => e.preventDefault()}
                   onClick={handleTogglePlay}

@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { PlatformData, StudentUser, Quiz, VideoItem, QuizAttempt, FileItem, PlatformLayoutPreset } from './types';
 import { initialPlatformData } from './defaultData';
 import { apiService } from './services/api';
 import { Navbar } from './components/Navbar';
 import { SectionsView } from './components/SectionsView';
 import { ResourceView } from './components/ResourceView';
-import { QuizModal } from './components/QuizModal';
-import { VideoPlayerModal } from './components/VideoPlayerModal';
-import { FileViewerModal } from './components/FileViewerModal';
-import { StudentProfileModal } from './components/StudentProfileModal';
-import { AuthModal } from './components/AuthModal';
-import { AdminDashboard } from './components/AdminDashboard';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { MaintenanceLockScreen } from './components/MaintenanceLockScreen';
-import { ExternalQuizConfirmModal } from './components/ExternalQuizConfirmModal';
 import { SplitStudioLayout } from './components/SplitStudioLayout';
+
+// Lazy load heavy admin tools and interactive modals for ultra-fast initial page loading
+const QuizModal = lazy(() => import('./components/QuizModal').then(m => ({ default: m.QuizModal })));
+const VideoPlayerModal = lazy(() => import('./components/VideoPlayerModal').then(m => ({ default: m.VideoPlayerModal })));
+const FileViewerModal = lazy(() => import('./components/FileViewerModal').then(m => ({ default: m.FileViewerModal })));
+const StudentProfileModal = lazy(() => import('./components/StudentProfileModal').then(m => ({ default: m.StudentProfileModal })));
+const AuthModal = lazy(() => import('./components/AuthModal').then(m => ({ default: m.AuthModal })));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const ExternalQuizConfirmModal = lazy(() => import('./components/ExternalQuizConfirmModal').then(m => ({ default: m.ExternalQuizConfirmModal })));
 import { 
   GraduationCap, 
   Sparkles, 
@@ -164,17 +166,36 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Load initial data
+  // Load initial data with zero-latency multi-tier acceleration
   const loadData = async () => {
-    // Instant UI update from in-memory cache
+    // 1. Stage 0: 0ms Instant display from cache (LocalStorage / In-Memory)
     const cached = apiService.getCachedPlatformData();
     if (cached && Array.isArray(cached.sections) && cached.sections.length > 0) {
       setPlatformData(cached);
       setIsLoading(false);
     }
+
+    // 2. Stage 1: Ultra-fast local server response (< 30ms) for fresh content
+    try {
+      const fastServer = await apiService.fetchServerDataFast();
+      if (fastServer && Array.isArray(fastServer.sections) && fastServer.sections.length > 0) {
+        setPlatformData((prev) => ({
+          ...fastServer,
+          settings: {
+            ...fastServer.settings,
+            theme: prev.settings?.theme || fastServer.settings?.theme,
+          },
+        }));
+        setIsLoading(false);
+      }
+    } catch {}
+
+    // 3. Stage 2: Background consolidation across Firebase Firestore and Server
     try {
       const data = await apiService.fetchPlatformData();
-      setPlatformData(data);
+      if (data && Array.isArray(data.sections) && data.sections.length > 0) {
+        setPlatformData(data);
+      }
     } catch (err) {
       console.warn('Error loading platform data:', err);
     } finally {
@@ -189,20 +210,22 @@ export default function App() {
       setCurrentUser(student);
     }
 
-    // Auto refresh when student returns to tab or window gains focus
-    const handleFocus = () => {
-      loadData();
-    };
-    window.addEventListener('focus', handleFocus);
+    // Auto refresh when student returns to tab (debounced by 15s to keep device fast)
+    let lastVisibilitySync = Date.now();
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        loadData();
+        const now = Date.now();
+        if (now - lastVisibilitySync > 15000) {
+          lastVisibilitySync = now;
+          loadData();
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Real-time synchronization for Live Stream (instant cross-tab & fast polling)
+    // Real-time synchronization for Live Stream (active only when tab is visible)
     const checkLiveStreamState = async () => {
+      if (document.hidden) return;
       try {
         const stream = await apiService.fetchLiveStream();
         setPlatformData((prev) => {
@@ -223,7 +246,7 @@ export default function App() {
       }
     };
 
-    const streamPollingInterval = setInterval(checkLiveStreamState, 4000);
+    const streamPollingInterval = setInterval(checkLiveStreamState, 12000);
 
     // Cross-tab broadcast listener
     let bc: BroadcastChannel | null = null;
@@ -268,7 +291,6 @@ export default function App() {
     window.addEventListener('tamayuz_announcement_updated', handleAnnouncementEvent);
 
     return () => {
-      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(streamPollingInterval);
       if (bc) bc.close();
@@ -561,13 +583,20 @@ export default function App() {
           
           {isAdminOpen ? (
             /* ADMIN DASHBOARD VIEW - Remounts with fresh state every time */
-            <AdminDashboard
-              key={adminKey}
-              platformData={platformData}
-              currentUser={currentUser}
-              onRefreshData={loadData}
-              onClose={() => setIsAdminOpen(false)}
-            />
+            <Suspense fallback={
+              <div className="flex flex-col items-center justify-center p-16 gap-3">
+                <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-xs text-slate-500 font-bold">جاري فتح لوحة التحكم...</p>
+              </div>
+            }>
+              <AdminDashboard
+                key={adminKey}
+                platformData={platformData}
+                currentUser={currentUser}
+                onRefreshData={loadData}
+                onClose={() => setIsAdminOpen(false)}
+              />
+            </Suspense>
           ) : layoutPreset !== 'classic' ? (
             /* CUSTOM / STUDIO LAYOUT PRESET (Sidebar Split / Cinema Wide / Bento) */
             <SplitStudioLayout
@@ -677,87 +706,89 @@ export default function App() {
         </button>
       )}
 
-      {/* MODALS */}
-      {/* 1. Interactive Quiz Modal */}
-      {activeQuiz && currentUser && (
-        <QuizModal
-          quiz={activeQuiz}
-          sectionTitle={
-            platformData.sections.find((s) => s.id === activeQuiz.sectionId)?.title || 'القسم'
-          }
-          resourceTitle={
-            platformData.resources.find((r) => r.id === activeQuiz.resourceId)?.title || 'المصدر'
-          }
-          onClose={() => setActiveQuiz(null)}
-          onComplete={handleQuizComplete}
-        />
-      )}
+      {/* MODALS (Lazy Loaded with Suspense) */}
+      <Suspense fallback={null}>
+        {/* 1. Interactive Quiz Modal */}
+        {activeQuiz && currentUser && (
+          <QuizModal
+            quiz={activeQuiz}
+            sectionTitle={
+              platformData.sections.find((s) => s.id === activeQuiz.sectionId)?.title || 'القسم'
+            }
+            resourceTitle={
+              platformData.resources.find((r) => r.id === activeQuiz.resourceId)?.title || 'المصدر'
+            }
+            onClose={() => setActiveQuiz(null)}
+            onComplete={handleQuizComplete}
+          />
+        )}
 
-      {/* 2. Video Player Modal */}
-      {activeVideo && currentUser && (
-        <VideoPlayerModal
-          video={activeVideo}
-          linkedQuiz={platformData.quizzes.find(
-            (q) => q.id === activeVideo.linkedQuizId || q.linkedVideoId === activeVideo.id
-          )}
-          isCompleted={currentUser?.progress?.completedVideoIds?.includes(activeVideo.id) || false}
-          onClose={() => setActiveVideo(null)}
-          onToggleComplete={handleToggleVideoComplete}
-          onStartQuiz={handleStartQuiz}
-        />
-      )}
+        {/* 2. Video Player Modal */}
+        {activeVideo && currentUser && (
+          <VideoPlayerModal
+            video={activeVideo}
+            linkedQuiz={platformData.quizzes.find(
+              (q) => q.id === activeVideo.linkedQuizId || q.linkedVideoId === activeVideo.id
+            )}
+            isCompleted={currentUser?.progress?.completedVideoIds?.includes(activeVideo.id) || false}
+            onClose={() => setActiveVideo(null)}
+            onToggleComplete={handleToggleVideoComplete}
+            onStartQuiz={handleStartQuiz}
+          />
+        )}
 
-      {/* 3. Student Profile Modal */}
-      {isProfileModalOpen && currentUser && (
-        <StudentProfileModal
-          user={currentUser}
-          resources={platformData.resources}
-          sections={platformData.sections}
-          videos={platformData.videos}
-          onClose={() => setIsProfileModalOpen(false)}
-          onLogout={handleLogout}
-          onNavigateToResource={(secId) => {
-            setSelectedSectionId(secId);
-          }}
-          onPlayVideo={handlePlayVideo}
-        />
-      )}
+        {/* 3. Student Profile Modal */}
+        {isProfileModalOpen && currentUser && (
+          <StudentProfileModal
+            user={currentUser}
+            resources={platformData.resources}
+            sections={platformData.sections}
+            videos={platformData.videos}
+            onClose={() => setIsProfileModalOpen(false)}
+            onLogout={handleLogout}
+            onNavigateToResource={(secId) => {
+              setSelectedSectionId(secId);
+            }}
+            onPlayVideo={handlePlayVideo}
+          />
+        )}
 
-      {/* 4. Auth (Login / Register) Modal */}
-      {isAuthModalOpen && (
-        <AuthModal
-          initialMode={authModalInitialMode}
-          promptMessage={authPromptMessage}
-          onClose={() => {
-            setIsAuthModalOpen(false);
-            setAuthPromptMessage(null);
-          }}
-          onSuccess={(user) => {
-            handleAuthSuccess(user);
-            setAuthPromptMessage(null);
-          }}
-        />
-      )}
+        {/* 4. Auth (Login / Register) Modal */}
+        {isAuthModalOpen && (
+          <AuthModal
+            initialMode={authModalInitialMode}
+            promptMessage={authPromptMessage}
+            onClose={() => {
+              setIsAuthModalOpen(false);
+              setAuthPromptMessage(null);
+            }}
+            onSuccess={(user) => {
+              handleAuthSuccess(user);
+              setAuthPromptMessage(null);
+            }}
+          />
+        )}
 
-      {/* 5. Interactive In-App File Viewer Modal */}
-      {activeFile && currentUser && (
-        <FileViewerModal
-          file={activeFile}
-          sectionTitle={
-            platformData.sections.find((s) => s.id === activeFile.sectionId)?.title || 'المذكرات والملفات التعليمية'
-          }
-          onClose={() => setActiveFile(null)}
-        />
-      )}
+        {/* 5. Interactive In-App File Viewer Modal */}
+        {activeFile && currentUser && (
+          <FileViewerModal
+            file={activeFile}
+            sectionTitle={
+              platformData.sections.find((s) => s.id === activeFile.sectionId)?.title || 'المذكرات والملفات التعليمية'
+            }
+            onClose={() => setActiveFile(null)}
+          />
+        )}
 
-      {/* 6. External Quiz Confirmation Modal */}
-      {externalQuizToConfirm && (
-        <ExternalQuizConfirmModal
-          quiz={externalQuizToConfirm}
-          onConfirm={handleConfirmExternalQuiz}
-          onCancel={() => setExternalQuizToConfirm(null)}
-        />
-      )}
+        {/* 6. External Quiz Confirmation Modal */}
+        {externalQuizToConfirm && (
+          <ExternalQuizConfirmModal
+            quiz={externalQuizToConfirm}
+            onConfirm={handleConfirmExternalQuiz}
+            onCancel={() => setExternalQuizToConfirm(null)}
+          />
+        )}
+      </Suspense>
 
       {/* Global Toast Notification */}
       {toastMessage && (

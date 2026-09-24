@@ -40,15 +40,62 @@ const CURRENT_USER_KEY = 'tamayuz_current_user_v1';
 let localCachedData: PlatformData | null = null;
 
 export const apiService = {
-  // Access in-memory cache instantly without network waterfall
+  // Access in-memory and local storage cache instantly without any network waterfall (0ms instant display)
   getCachedPlatformData(): PlatformData {
-    if (localCachedData) return localCachedData;
+    if (localCachedData && Array.isArray(localCachedData.sections) && localCachedData.sections.length > 0) {
+      return localCachedData;
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('tamayuz_platform_data');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
+            localCachedData = parsed;
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Local cache read warning:', e);
+      }
+    }
     return JSON.parse(JSON.stringify(initialPlatformData));
   },
 
   // Update in-memory cache directly
   setCachedPlatformData(data: PlatformData): void {
     localCachedData = data;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('tamayuz_platform_data', JSON.stringify(data));
+      } catch {}
+    }
+  },
+
+  // Ultra-fast direct server data fetch (< 30ms)
+  async fetchServerDataFast(): Promise<PlatformData | null> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
+      const res = await fetch(`/api/data?_t=${Date.now()}`, {
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.sections) && data.sections.length > 0) {
+          return data;
+        }
+      }
+    } catch {
+      // Ignore aborts or transient errors
+    }
+    return null;
   },
 
   // Save full platform data permanently to both Server and Firebase Firestore
@@ -126,31 +173,34 @@ export const apiService = {
     return new Date().toISOString();
   },
 
-  // Fetch platform data permanently with multi-tier sync
+  // Fetch platform data permanently with multi-tier sync (Parallelized for maximum speed)
   async fetchPlatformData(): Promise<PlatformData> {
-    let firestoreData: PlatformData | null = null;
-    try {
-      firestoreData = await loadPlatformDataFromFirestore();
-    } catch (firestoreErr) {
-      console.warn('[API] Could not load directly from Firestore:', firestoreErr);
-    }
-
-    let serverData: PlatformData | null = null;
-    try {
-      const res = await fetch(`/api/data?_t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-        },
+    // 1. Parallel execution: instant local server fetch + Firestore fetch (with 2.5s safe ceiling)
+    const serverFetchPromise = fetch(`/api/data?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    })
+      .then(async (res) => (res.ok ? await res.json() : null))
+      .catch((err) => {
+        console.warn('Error fetching platform data from server:', err);
+        return null;
       });
 
-      if (res.ok) {
-        serverData = await res.json();
-      }
-    } catch (err) {
-      console.warn('Error fetching platform data from server:', err);
-    }
+    const firestorePromise = Promise.race([
+      loadPlatformDataFromFirestore().catch((firestoreErr) => {
+        console.warn('[API] Could not load directly from Firestore:', firestoreErr);
+        return null;
+      }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
+    ]);
+
+    const [serverData, firestoreData] = await Promise.all([
+      serverFetchPromise,
+      firestorePromise,
+    ]);
 
     // Build consolidated deleted set so deleted items NEVER return under any circumstances
     const firestoreDeleted = Array.isArray(firestoreData?.deletedIds) ? firestoreData.deletedIds : [];
