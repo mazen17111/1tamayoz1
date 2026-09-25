@@ -43,6 +43,7 @@ interface AdminAccessTabProps {
   onToggleStudentApproval: (email: string, isApproved: boolean) => Promise<void>;
   onToggleStudentBlock?: (email: string, isBlocked: boolean) => Promise<void>;
   onDeleteStudent?: (email: string) => Promise<void>;
+  onSetStudentSubscription?: (email: string, days: number) => Promise<void>;
   onRefreshStats: () => Promise<void>;
   isSaving: boolean;
 }
@@ -80,6 +81,7 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
   onToggleStudentApproval,
   onToggleStudentBlock,
   onDeleteStudent,
+  onSetStudentSubscription,
   onRefreshStats,
   isSaving,
 }) => {
@@ -118,6 +120,35 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<{ email: string; name: string } | null>(null);
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
+
+  // Student Subscription Modal State (تحديد مدة الاشتراك يدوياً بالأيام)
+  const [subscriptionModalStudent, setSubscriptionModalStudent] = useState<any | null>(null);
+  const [subscriptionDaysInput, setSubscriptionDaysInput] = useState<string>('30');
+  const [isSavingSubscription, setIsSavingSubscription] = useState<boolean>(false);
+
+  const handleOpenSubscriptionModal = (student: any) => {
+    setSubscriptionModalStudent(student);
+    if (student.subscriptionDays && student.subscriptionDays > 0) {
+      setSubscriptionDaysInput(String(student.subscriptionDays));
+    } else {
+      setSubscriptionDaysInput('30');
+    }
+  };
+
+  const handleSaveSubscription = async (daysToSave?: number) => {
+    if (!subscriptionModalStudent || !onSetStudentSubscription) return;
+    const finalDays = daysToSave !== undefined ? daysToSave : (parseInt(subscriptionDaysInput, 10) || 0);
+    setIsSavingSubscription(true);
+    try {
+      await onSetStudentSubscription(subscriptionModalStudent.email, finalDays);
+      setSubscriptionModalStudent(null);
+      await onRefreshStats();
+    } catch (err) {
+      console.error('Failed to save student subscription:', err);
+    } finally {
+      setIsSavingSubscription(false);
+    }
+  };
 
   // Toggle platform lock with current selected options
   const handleToggleLock = async () => {
@@ -607,6 +638,18 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
                   );
                   const isUpdating = updatingStudentEmail === student.email;
 
+                  const hasActiveSubscription = Boolean(
+                    student.subscriptionExpiresAt &&
+                    new Date(student.subscriptionExpiresAt).getTime() > Date.now()
+                  );
+                  const remainingDays = hasActiveSubscription
+                    ? Math.max(1, Math.ceil((new Date(student.subscriptionExpiresAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                    : 0;
+                  const isSubscriptionExpired = Boolean(
+                    student.subscriptionExpiresAt &&
+                    new Date(student.subscriptionExpiresAt).getTime() <= Date.now()
+                  );
+
                   return (
                     <tr 
                       key={student.id || student.email}
@@ -624,10 +667,34 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
                             {student.name.charAt(0)}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-slate-900 dark:text-white block">
                                 {student.name}
                               </span>
+
+                              {/* الزر الصغير باللون الأزرق لتحديد مدة الاشتراك يدوياً بالأيام */}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenSubscriptionModal(student)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-white shadow-xs cursor-pointer transition-all hover:scale-105 active:scale-95 bg-blue-600 hover:bg-blue-700 ${
+                                  hasActiveSubscription ? 'ring-2 ring-blue-300 dark:ring-blue-500' : ''
+                                }`}
+                                title={
+                                  hasActiveSubscription
+                                    ? `متبقي على اشتراك الطالب: ${remainingDays} يوم. انقر للتعديل أو التجديد`
+                                    : 'انقر لتحديد مدة اشتراك الطالب يدوياً بالأيام'
+                                }
+                              >
+                                <Clock className="w-3.5 h-3.5 text-white" />
+                                <span>
+                                  {hasActiveSubscription
+                                    ? `⏳ ${remainingDays} يوم`
+                                    : isSubscriptionExpired
+                                    ? '⚠️ منتهي (تجديد)'
+                                    : '⏱️ تحديد الأيام'}
+                                </span>
+                              </button>
+
                               {isIndividuallyBlocked && (
                                 <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-600 text-white shadow-2xs">
                                   محظور فردياً 🔒
@@ -750,6 +817,156 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
                 إلغاء
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Subscription Duration Modal (الزر الأزرق لتحديد عدد الأيام يدوياً) */}
+      {subscriptionModalStudent && (
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 max-w-lg w-full text-right shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <button 
+                type="button" 
+                onClick={() => setSubscriptionModalStudent(null)} 
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+              <div className="flex items-center gap-2.5">
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                    تحديد مدة اشتراك الطالب
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {subscriptionModalStudent.name} • <span className="font-mono">{subscriptionModalStudent.email}</span>
+                  </p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+
+            {/* Current status alert */}
+            {subscriptionModalStudent.subscriptionExpiresAt && (
+              <div className={`p-3 rounded-2xl text-xs flex items-center justify-between border ${
+                new Date(subscriptionModalStudent.subscriptionExpiresAt).getTime() > Date.now()
+                  ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200'
+                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+              }`}>
+                <div>
+                  <span className="font-bold block">
+                    {new Date(subscriptionModalStudent.subscriptionExpiresAt).getTime() > Date.now()
+                      ? `⏳ الاشتراك نشط حالياً (متبقي: ${Math.max(1, Math.ceil((new Date(subscriptionModalStudent.subscriptionExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} يوم)`
+                      : '⚠️ انتهى اشتراك هذا الطالب سابقاً'}
+                  </span>
+                  <span className="text-[11px] opacity-80 block mt-0.5">
+                    تاريخ الانتهاء: {new Date(subscriptionModalStudent.subscriptionExpiresAt).toLocaleDateString('ar-SA', { dateStyle: 'full' })}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSaveSubscription(0)}
+                  disabled={isSavingSubscription}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 transition-colors cursor-pointer"
+                  title="إلغاء تقييد الاشتراك لهذا الطالب"
+                >
+                  إلغاء الاشتراك
+                </button>
+              </div>
+            )}
+
+            {/* Presets */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                خيارات سريعة للمدة:
+              </label>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                {[
+                  { label: '7 أيام', val: 7 },
+                  { label: '15 يوم', val: 15 },
+                  { label: '30 يوم', val: 30 },
+                  { label: '60 يوم', val: 60 },
+                  { label: '90 يوم', val: 90 },
+                  { label: 'سنة (365)', val: 365 },
+                ].map((preset) => (
+                  <button
+                    key={preset.val}
+                    type="button"
+                    onClick={() => setSubscriptionDaysInput(String(preset.val))}
+                    className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
+                      subscriptionDaysInput === String(preset.val)
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-300 dark:ring-blue-500'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Manual Days Input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                كتابة عدد الأيام يدوياً:
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  max="1825"
+                  value={subscriptionDaysInput}
+                  onChange={(e) => setSubscriptionDaysInput(e.target.value)}
+                  placeholder="اكتب عدد الأيام (مثال: 30 أو 45)..."
+                  className="w-full text-lg font-black text-center py-3 px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                  يوماً
+                </span>
+              </div>
+            </div>
+
+            {/* Expiry Date Calculation Preview */}
+            {parseInt(subscriptionDaysInput, 10) > 0 && (
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
+                  <span>تاريخ انتهاء الاشتراك المحسوب:</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-mono">
+                    {new Date(Date.now() + (parseInt(subscriptionDaysInput, 10) || 0) * 24 * 60 * 60 * 1000).toLocaleDateString('ar-SA', { dateStyle: 'full' })}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  سيظهر عداد في واجهة الطالب ينقص كل يوم، وعند وصوله لليوم الأخير تقفل المنصة عليه تلقائياً مع توجيهه للتواصل مع المشرف لتجديد الاشتراك.
+                </p>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => handleSaveSubscription()}
+                disabled={isSavingSubscription || !parseInt(subscriptionDaysInput, 10)}
+                className="flex-1 py-3 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-black text-sm shadow-lg shadow-blue-600/25 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isSavingSubscription ? 'جاري الحفظ...' : 'حفظ مدة الاشتراك'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSubscriptionModalStudent(null)}
+                disabled={isSavingSubscription}
+                className="py-3 px-5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm transition-all cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+
           </div>
         </div>
       )}

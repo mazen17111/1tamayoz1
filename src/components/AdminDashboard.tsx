@@ -325,6 +325,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleSetStudentSubscription = async (email: string, days: number) => {
+    try {
+      const res = await apiService.setStudentSubscription(email, days);
+      const numDays = Number(days) || 0;
+      const now = new Date();
+      const expiresAt = numDays > 0 ? new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString() : undefined;
+      const startedAt = numDays > 0 ? now.toISOString() : undefined;
+
+      setAdminStats((prev) => {
+        if (!prev || !prev.students) return prev;
+        return {
+          ...prev,
+          students: prev.students.map((s) =>
+            s.email.toLowerCase() === email.toLowerCase()
+              ? {
+                  ...s,
+                  subscriptionDays: numDays > 0 ? numDays : undefined,
+                  subscriptionStartedAt: startedAt,
+                  subscriptionExpiresAt: expiresAt,
+                }
+              : s
+          ),
+        };
+      });
+
+      await onRefreshData();
+      const messageToDisplay = numDays > 0
+        ? `تم تعيين الوقت بنجاح وستغلق بعد عدد الأيام المحدد (${numDays} يوم)`
+        : 'تم إلغاء مدة الاشتراك بنجاح';
+      showToast(messageToDisplay);
+    } catch (e: any) {
+      showToast(e.message || 'فشل تحديث اشتراك الطالب');
+    }
+  };
+
   const handleSaveAnnouncement = async (newAnnouncement: PlatformAnnouncement) => {
     setIsSavingAnnouncement(true);
     try {
@@ -597,22 +632,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (editingResource) {
         await apiService.updateResource(editingResource.id, {
           sectionId: resSectionId,
-          title: resTitle,
-          description: resDescription,
+          title: resTitle.trim(),
+          description: resDescription.trim(),
           level: resLevel,
         });
-        showToast('تم تعديل المصدر التعليمي بنجاح');
+        showToast('تم حفظ وتعديل المصدر التعليمي بنجاح!');
       } else {
         await apiService.createResource({
           sectionId: resSectionId,
-          title: resTitle,
-          description: resDescription,
+          title: resTitle.trim(),
+          description: resDescription.trim(),
           level: resLevel,
         });
-        showToast('تمت إضافة المصدر التعليمي بنجاح!');
+        showToast('تمت إضافة المصدر التعليمي الجديد بنجاح!');
       }
-      await onRefreshData();
       setIsResourceModalOpen(false);
+      await onRefreshData();
     } catch (e: any) {
       showToast(e.message || 'فشل حفظ المصدر');
     } finally {
@@ -2570,6 +2605,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onToggleStudentApproval={handleToggleStudentApproval}
           onToggleStudentBlock={handleToggleStudentBlock}
           onDeleteStudent={handleDeleteStudent}
+          onSetStudentSubscription={handleSetStudentSubscription}
           onRefreshStats={loadAdminStats}
           isSaving={isSavingAccess}
         />

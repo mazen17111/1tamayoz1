@@ -1272,21 +1272,30 @@ startxref
   // 3. Resources CRUD
   app.post('/api/resources', (req, res) => {
     platformData = loadPlatformData();
-    const { sectionId, title, description, iconName, level } = req.body;
+    const { id, sectionId, title, description, iconName, level, order } = req.body;
     if (!sectionId || !title) {
       return res.status(400).json({ error: 'القسم والعنوان مطلوبان' });
     }
+    const targetId = (id && typeof id === 'string' && id.trim()) ? id.trim() : `res-${Date.now()}`;
     const newResource: ResourceItem = {
-      id: `res-${Date.now()}`,
+      id: targetId,
       sectionId,
       title: title.trim(),
       description: description?.trim() || '',
-      iconName: iconName || 'FileText',
+      iconName: iconName || 'BookOpen',
       level: level || 'متوسط',
-      order: platformData.resources.filter((r) => r.sectionId === sectionId).length + 1,
+      order: order !== undefined ? Number(order) : platformData.resources.filter((r) => r.sectionId === sectionId).length + 1,
       createdAt: new Date().toISOString(),
     };
-    platformData.resources.push(newResource);
+    const existingIdx = platformData.resources.findIndex(r => r.id === targetId);
+    if (existingIdx >= 0) {
+      platformData.resources[existingIdx] = {
+        ...platformData.resources[existingIdx],
+        ...newResource,
+      };
+    } else {
+      platformData.resources.push(newResource);
+    }
     savePlatformData(platformData);
     res.json(newResource);
   });
@@ -1294,11 +1303,23 @@ startxref
   app.put('/api/resources/:id', (req, res) => {
     platformData = loadPlatformData();
     const { id } = req.params;
-    const index = platformData.resources.findIndex((r) => r.id === id);
-    if (index === -1) {
-      return res.status(404).json({ error: 'المصدر غير موجود' });
-    }
+    let index = platformData.resources.findIndex((r) => r.id === id);
     const { title, description, iconName, level, sectionId, order } = req.body;
+    if (index === -1) {
+      const createdRes: ResourceItem = {
+        id,
+        sectionId: sectionId || platformData.sections[0]?.id || '',
+        title: title ? title.trim() : 'مصدر تعليمي جديد',
+        description: description?.trim() || '',
+        iconName: iconName || 'BookOpen',
+        level: level || 'متوسط',
+        order: order !== undefined ? Number(order) : platformData.resources.length + 1,
+        createdAt: new Date().toISOString(),
+      };
+      platformData.resources.push(createdRes);
+      savePlatformData(platformData);
+      return res.json(createdRes);
+    }
     platformData.resources[index] = {
       ...platformData.resources[index],
       title: title ? title.trim() : platformData.resources[index].title,
@@ -1827,10 +1848,74 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
           completedQuizzesCount: s.progress?.completedQuizAttempts?.length || 0,
           isApproved: Boolean(s.isApproved || allowedEmails.includes(emailLower)),
           isIndividuallyBlocked,
+          subscriptionDays: s.subscriptionDays,
+          subscriptionStartedAt: s.subscriptionStartedAt,
+          subscriptionExpiresAt: s.subscriptionExpiresAt,
         };
       }),
       totalAttemptsCount: allAttempts.length,
       recentAttempts: allAttempts.slice(0, 15),
+    });
+  });
+
+  // Dedicated Student Subscription duration endpoint (manual days entry)
+  app.post('/api/admin/student-subscription', (req, res) => {
+    usersData = loadUsers();
+    const { email, days } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'البريد الإلكتروني للطالب مطلوب' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const student = usersData.users.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
+    if (!student) {
+      return res.status(404).json({ error: 'حساب الطالب غير موجود' });
+    }
+
+    const numDays = days !== undefined && days !== null ? Number(days) : 0;
+    if (numDays > 0) {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString();
+      student.subscriptionDays = numDays;
+      student.subscriptionStartedAt = now.toISOString();
+      student.subscriptionExpiresAt = expiresAt;
+    } else {
+      delete student.subscriptionDays;
+      delete student.subscriptionStartedAt;
+      delete student.subscriptionExpiresAt;
+    }
+
+    saveUsers(usersData);
+    res.json({
+      success: true,
+      message: numDays > 0 ? `تم تعيين الوقت بنجاح وستغلق بعد عدد الأيام المحدد (${numDays} يوم)` : 'تم إلغاء مدة الاشتراك بنجاح',
+      student: {
+        id: student.id,
+        name: student.name,
+        email: student.email,
+        subscriptionDays: student.subscriptionDays,
+        subscriptionStartedAt: student.subscriptionStartedAt,
+        subscriptionExpiresAt: student.subscriptionExpiresAt,
+      },
+    });
+  });
+
+  // Student Profile Endpoint (fetches fresh subscription & access state)
+  app.get('/api/student/profile/:email', (req, res) => {
+    usersData = loadUsers();
+    platformData = loadPlatformData();
+    const cleanEmail = (req.params.email || '').trim().toLowerCase();
+    const student = usersData.users.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
+    if (!student) {
+      return res.status(404).json({ error: 'حساب الطالب غير موجود' });
+    }
+    const blockedEmails = (platformData.settings?.access?.blockedStudentEmails || []).map((e: string) => e.toLowerCase());
+    const isIndividuallyBlocked = Boolean(student.isIndividuallyBlocked || blockedEmails.includes(cleanEmail));
+    const { passwordHash, ...safeUser } = student;
+    res.json({
+      user: {
+        ...safeUser,
+        isIndividuallyBlocked,
+      },
     });
   });
 

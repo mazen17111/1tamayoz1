@@ -6,6 +6,7 @@ import { Navbar } from './components/Navbar';
 import { SectionsView } from './components/SectionsView';
 import { ResourceView } from './components/ResourceView';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
+import { StudentSubscriptionBanner } from './components/StudentSubscriptionBanner';
 import { MaintenanceLockScreen } from './components/MaintenanceLockScreen';
 import { SplitStudioLayout } from './components/SplitStudioLayout';
 import { InAppBrowserBanner } from './components/InAppBrowserBanner';
@@ -229,7 +230,28 @@ export default function App() {
         if (prev.id === student.id && (prev as any).updatedAt === (student as any).updatedAt) return prev;
         return student;
       });
+      if (student.email) {
+        apiService.fetchStudentProfile(student.email).then((fresh) => {
+          if (fresh) {
+            setCurrentUser((prev) => (prev ? { ...prev, ...fresh } : fresh));
+          }
+        }).catch(() => {});
+      }
     }
+
+    // Real-time student subscription / profile sync
+    const handleStudentUpdated = (e: any) => {
+      const updated = e.detail as StudentUser;
+      if (updated && updated.email) {
+        setCurrentUser((prev) => {
+          if (prev && prev.email.toLowerCase() === updated.email.toLowerCase()) {
+            return { ...prev, ...updated };
+          }
+          return prev;
+        });
+      }
+    };
+    window.addEventListener('tamayuz_student_updated', handleStudentUpdated);
 
     // Auto refresh when student returns to tab (debounced by 15s to keep device fast)
     let lastVisibilitySync = Date.now();
@@ -318,6 +340,7 @@ export default function App() {
       if (announcementBc) announcementBc.close();
       window.removeEventListener('tamayuz_livestream_updated', handleStreamEvent);
       window.removeEventListener('tamayuz_announcement_updated', handleAnnouncementEvent);
+      window.removeEventListener('tamayuz_student_updated', handleStudentUpdated);
     };
   }, []);
 
@@ -337,12 +360,33 @@ export default function App() {
       setIsAuthModalOpen(true);
       return;
     }
-    const updated = await apiService.recordProgress({
-      userId: currentUser.id,
-      bookmarkedResourceId: resourceId,
-    });
-    if (updated) {
-      setCurrentUser(updated);
+    const currentBookmarks = currentUser.progress?.bookmarkedResourceIds || [];
+    const isAlreadyBookmarked = currentBookmarks.includes(resourceId);
+    const newBookmarks = isAlreadyBookmarked
+      ? currentBookmarks.filter((id) => id !== resourceId)
+      : [...currentBookmarks, resourceId];
+
+    // Instant optimistic update for 0ms fluid feedback
+    const optimisticUser: StudentUser = {
+      ...currentUser,
+      progress: {
+        ...currentUser.progress,
+        bookmarkedResourceIds: newBookmarks,
+      },
+    };
+    setCurrentUser(optimisticUser);
+    showToast(isAlreadyBookmarked ? 'تمت إزالة المصدر من المحفوظات' : '⭐ تم حفظ وتثبيت المصدر في المفضلة بنجاح!');
+
+    try {
+      const updated = await apiService.recordProgress({
+        userId: currentUser.id,
+        bookmarkedResourceId: resourceId,
+      });
+      if (updated) {
+        setCurrentUser(updated);
+      }
+    } catch (err) {
+      console.warn('Bookmark sync warning:', err);
     }
   };
 
@@ -529,11 +573,19 @@ export default function App() {
     (currentUser.isIndividuallyBlocked || (currentUserEmail && blockedStudentEmails.includes(currentUserEmail)))
   );
 
+  // Student Subscription expiry check (تحديد مدة الاشتراك بالأيام وعند وصوله لليوم الأخير تقفل المنصة)
+  const isSubscriptionExpired = Boolean(
+    currentUser &&
+    currentUser.role !== 'admin' &&
+    currentUser.subscriptionExpiresAt &&
+    new Date(currentUser.subscriptionExpiresAt).getTime() <= Date.now()
+  );
+
   // Guest lockdown: completely lock all videos, files, quizzes and content for non-logged in users as explicitly requested!
   const isGuestLocked = !currentUser;
 
-  // If guest OR individually blocked OR (locked and not admin/approved) and not in admin dashboard, show lock screen
-  const showLockScreen = !isAdminOpen && (isGuestLocked || isIndividuallyBlocked || (isPlatformLocked && !isCurrentUserApproved));
+  // If guest OR individually blocked OR subscription expired OR (locked and not admin/approved) and not in admin dashboard, show lock screen
+  const showLockScreen = !isAdminOpen && (isGuestLocked || isIndividuallyBlocked || isSubscriptionExpired || (isPlatformLocked && !isCurrentUserApproved));
 
   // Theme and layout configuration: instant resolution so saved layout appears immediately with 0 delay or flash
   const savedLayoutPreset = typeof window !== 'undefined' ? safeStorage.getItem('tamayuz_layout_preset') : null;
@@ -555,7 +607,7 @@ export default function App() {
   const fontScale = savedThemeConfig?.fontScale || platformData.settings?.theme?.fontScale || 'normal';
 
   return (
-    <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 selection:bg-emerald-100 selection:text-emerald-900 font-['Cairo',sans-serif] transition-colors duration-200 overflow-x-hidden w-full max-w-full theme-${themePreset} radius-${borderRadius} density-${density} font-scale-${fontScale}`}>
+    <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 selection:bg-emerald-100 selection:text-emerald-900 font-['Cairo',sans-serif] transition-colors duration-200 overflow-x-clip w-full max-w-full theme-${themePreset} radius-${borderRadius} density-${density} font-scale-${fontScale}`}>
       
       {/* In-App Browser Helper (Telegram, WhatsApp, WebViews) */}
       <InAppBrowserBanner onShowToast={showToast} />
@@ -585,6 +637,14 @@ export default function App() {
       {/* Global Announcement Alert Bar */}
       <AnnouncementBanner announcement={platformData.settings?.announcement} />
 
+      {/* Student Subscription Bar with Days Countdown & Advancing Progress Bar */}
+      {!isAdminOpen && !showLockScreen && currentUser && currentUser.role !== 'admin' && currentUser.subscriptionExpiresAt && (
+        <StudentSubscriptionBanner
+          currentUser={currentUser}
+          accessConfig={platformData.settings?.access}
+        />
+      )}
+
       {/* Platform Content or Lockdown Screen */}
       {showLockScreen ? (
         <MaintenanceLockScreen
@@ -593,6 +653,7 @@ export default function App() {
           currentUser={currentUser}
           isIndividuallyBlocked={isIndividuallyBlocked}
           isGuestLocked={isGuestLocked}
+          isSubscriptionExpired={isSubscriptionExpired}
           onOpenAdmin={handleOpenAdmin}
           onOpenAuth={(mode?: 'login' | 'register') => {
             setAuthModalInitialMode(mode || 'login');

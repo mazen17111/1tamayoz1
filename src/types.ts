@@ -31,6 +31,7 @@ export interface VideoItem {
   title: string;
   description: string;
   videoUrl: string; // YouTube embed URL, standard URL, or MP4
+  url?: string;
   durationMinutes: number;
   linkedQuizId?: string;
   order: number;
@@ -121,6 +122,9 @@ export interface StudentUser {
   createdAt: string;
   isApproved?: boolean; // When platform is locked, only approved students can enter
   isIndividuallyBlocked?: boolean; // When individually locked, this student cannot access even if platform is open
+  subscriptionDays?: number; // Duration in days set by admin
+  subscriptionStartedAt?: string; // ISO date string when subscription was granted
+  subscriptionExpiresAt?: string; // ISO date string when subscription expires
   progress: {
     completedVideoIds: string[];
     completedQuizAttempts: QuizAttempt[];
@@ -226,6 +230,9 @@ export interface RegisteredStudent {
   completedQuizzesCount: number;
   isApproved?: boolean;
   isIndividuallyBlocked?: boolean;
+  subscriptionDays?: number;
+  subscriptionStartedAt?: string;
+  subscriptionExpiresAt?: string;
 }
 
 export interface AdminStats {

@@ -27,6 +27,7 @@ import {
   deleteStudentFromFirestore,
   setStudentApprovalInFirestore,
   setStudentBlockInFirestore,
+  setStudentSubscriptionInFirestore,
   cleanForFirestore,
   COLLECTIONS,
   MAIN_DATA_DOC_ID,
@@ -530,13 +531,15 @@ export const apiService = {
     };
     const cleanResource = cleanForFirestore(newResource);
 
-    if (localCachedData) {
-      localCachedData = {
-        ...localCachedData,
-        resources: [...localCachedData.resources.filter(r => r.id !== newResource.id), cleanResource],
-        updatedAt: new Date().toISOString()
-      };
-    }
+    const currentCached = this.getCachedPlatformData();
+    localCachedData = {
+      ...currentCached,
+      resources: [...(currentCached.resources || []).filter(r => r.id !== newResource.id), cleanResource],
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      safeStorage.setItem('tamayuz_platform_data', JSON.stringify(localCachedData));
+    } catch {}
 
     const serverPromise = fetch('/api/resources', {
       method: 'POST',
@@ -557,12 +560,12 @@ export const apiService = {
 
     const saved = await serverPromise;
     firestorePromise.catch(() => {});
-    return saved;
+    return saved || cleanResource;
   },
 
   async updateResource(id: string, updates: Partial<ResourceItem>): Promise<ResourceItem> {
     const current = this.getCachedPlatformData();
-    const existing = current.resources.find(r => r.id === id);
+    const existing = (current.resources || []).find(r => r.id === id);
     const updatedResource: ResourceItem = {
       ...existing,
       ...updates,
@@ -570,13 +573,14 @@ export const apiService = {
     } as ResourceItem;
     const cleanResource = cleanForFirestore(updatedResource);
 
-    if (localCachedData) {
-      localCachedData = {
-        ...localCachedData,
-        resources: localCachedData.resources.map(r => r.id === id ? cleanResource : r),
-        updatedAt: new Date().toISOString()
-      };
-    }
+    localCachedData = {
+      ...current,
+      resources: (current.resources || []).map(r => r.id === id ? cleanResource : r),
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      safeStorage.setItem('tamayuz_platform_data', JSON.stringify(localCachedData));
+    } catch {}
 
     const serverPromise = fetch(`/api/resources/${id}`, {
       method: 'PUT',
@@ -1454,6 +1458,9 @@ export const apiService = {
               completedVideosCount: st.progress?.completedVideoIds?.length || 0,
               isApproved: Boolean(st.isApproved || (platform.settings?.access?.allowedStudentEmails || []).some((e: string) => e.toLowerCase() === emailLower)),
               isIndividuallyBlocked: Boolean(st.isIndividuallyBlocked || blockedEmails.includes(emailLower)),
+              subscriptionDays: st.subscriptionDays,
+              subscriptionStartedAt: st.subscriptionStartedAt,
+              subscriptionExpiresAt: st.subscriptionExpiresAt,
             };
           })
         };
@@ -1793,6 +1800,97 @@ export const apiService = {
     }
 
     return true;
+  },
+
+  // Set student subscription duration in days (يدوياً بالأيام)
+  async setStudentSubscription(studentEmail: string, days: number): Promise<{ success: boolean; message: string; student?: any }> {
+    const target = studentEmail.trim().toLowerCase();
+    const numDays = Number(days) || 0;
+    const now = new Date();
+    const expiresAt = numDays > 0 ? new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString() : undefined;
+    const startedAt = numDays > 0 ? now.toISOString() : undefined;
+
+    // 1. Sync to Firestore
+    try {
+      if (numDays > 0 && expiresAt) {
+        await setStudentSubscriptionInFirestore(target, {
+          days: numDays,
+          startedAt,
+          expiresAt,
+        });
+      } else {
+        await setStudentSubscriptionInFirestore(target, null);
+      }
+    } catch (err) {
+      console.warn('Firestore setStudentSubscription warning:', err);
+    }
+
+    // 2. Sync to Server
+    let serverResult = null;
+    try {
+      const res = await fetch('/api/admin/student-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: target, days: numDays }),
+      });
+      if (res.ok) {
+        serverResult = await res.json();
+      }
+    } catch (e) {
+      console.warn('Server sync error on student subscription:', e);
+    }
+
+    // 3. If current student is this student, update session immediately
+    const cur = this.getCurrentStudent();
+    const updatedUser: StudentUser = {
+      ...(cur || { id: `usr-${target}`, name: target, email: target, role: 'student', createdAt: new Date().toISOString() }),
+      subscriptionDays: numDays > 0 ? numDays : undefined,
+      subscriptionStartedAt: startedAt,
+      subscriptionExpiresAt: expiresAt,
+    };
+
+    if (cur && cur.email.trim().toLowerCase() === target) {
+      this.saveCurrentStudent(updatedUser);
+    }
+
+    try {
+      window.dispatchEvent(new CustomEvent('tamayuz_student_updated', { detail: updatedUser }));
+    } catch {}
+
+    return {
+      success: true,
+      message: numDays > 0 ? `تم تعيين الوقت بنجاح وستغلق بعد عدد الأيام المحدد (${numDays} يوم)` : 'تم إلغاء الاشتراك بنجاح',
+      student: serverResult?.student || {
+        email: target,
+        subscriptionDays: numDays > 0 ? numDays : undefined,
+        subscriptionStartedAt: startedAt,
+        subscriptionExpiresAt: expiresAt,
+      },
+    };
+  },
+
+  // Fetch fresh student profile (subscription & status)
+  async fetchStudentProfile(email: string): Promise<StudentUser | null> {
+    if (!email) return null;
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const res = await fetch(`/api/student/profile/${encodeURIComponent(cleanEmail)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          const cur = this.getCurrentStudent();
+          if (cur && cur.email.trim().toLowerCase() === cleanEmail) {
+            const merged = { ...cur, ...data.user };
+            this.saveCurrentStudent(merged);
+            return merged;
+          }
+          return data.user;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch student profile:', e);
+    }
+    return null;
   },
 
   // Permanently delete student account

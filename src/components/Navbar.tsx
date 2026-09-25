@@ -10,7 +10,8 @@ import {
   Award,
   Sparkles,
   BarChart3,
-  Radio
+  Radio,
+  Clock
 } from 'lucide-react';
 import { StudentUser, LiveStreamConfig } from '../types';
 
@@ -47,6 +48,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const completedTestsCount = currentUser?.progress?.completedQuizAttempts?.length || 0;
   const completedVideosCount = currentUser?.progress?.completedVideoIds?.length || 0;
+
+  // Student subscription countdown timer calculation
+  const subscriptionExpiresTime = currentUser?.subscriptionExpiresAt
+    ? new Date(currentUser.subscriptionExpiresAt).getTime()
+    : null;
+  const isSubscriptionActive = Boolean(
+    currentUser &&
+    currentUser.role !== 'admin' &&
+    subscriptionExpiresTime &&
+    subscriptionExpiresTime > Date.now()
+  );
+  const remainingDays = isSubscriptionActive && subscriptionExpiresTime
+    ? Math.max(1, Math.ceil((subscriptionExpiresTime - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 shadow-xs transition-colors duration-200">
@@ -145,6 +160,25 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* User Profile / Auth */}
             {currentUser ? (
               <div className="flex items-center gap-2">
+                {/* عداد اشتراك الطالب التنازلي المباشر */}
+                {isSubscriptionActive && remainingDays !== null && remainingDays > 0 && (
+                  <button
+                    type="button"
+                    onClick={onOpenProfile}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer border hover:scale-105 active:scale-95 ${
+                      remainingDays <= 3
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 ring-2 ring-amber-400/50 animate-pulse'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-blue-600/20'
+                    }`}
+                    title={`متبقي على اشتراكك في المنصة ${remainingDays} يوم (تاريخ الانتهاء: ${new Date(subscriptionExpiresTime!).toLocaleDateString('ar-SA')})`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>
+                      {remainingDays === 1 ? '⏳ اليوم الأخير من اشتراكك!' : `⏳ متبقي على اشتراكك: ${remainingDays} يوم`}
+                    </span>
+                  </button>
+                )}
+
                 <button
                   id="navbar-profile-btn"
                   onClick={onOpenProfile}
@@ -295,6 +329,27 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {currentUser ? (
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+              {/* عداد اشتراك الطالب التنازلي في الهاتف */}
+              {isSubscriptionActive && remainingDays !== null && remainingDays > 0 && (
+                <div
+                  className={`w-full p-2.5 rounded-xl text-xs font-black flex items-center justify-between text-white border ${
+                    remainingDays <= 3
+                      ? 'bg-amber-500 border-amber-600 ring-2 ring-amber-400/50 animate-pulse'
+                      : 'bg-blue-600 border-blue-700 shadow-sm shadow-blue-600/20'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-white" />
+                    <span>
+                      {remainingDays === 1 ? 'اليوم الأخير من اشتراكك!' : `متبقي على اشتراكك: ${remainingDays} يوم`}
+                    </span>
+                  </span>
+                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">
+                    ينقص كل يوم
+                  </span>
+                </div>
+              )}
+
               <button
                 onClick={() => {
                   onOpenProfile();

@@ -442,6 +442,9 @@ export async function getAllStudentsFromFirestore(): Promise<StudentUser[]> {
           },
           isApproved: existing.isApproved || data.isApproved,
           isIndividuallyBlocked: existing.isIndividuallyBlocked || data.isIndividuallyBlocked,
+          subscriptionDays: data.subscriptionDays !== undefined ? data.subscriptionDays : existing.subscriptionDays,
+          subscriptionStartedAt: data.subscriptionStartedAt || existing.subscriptionStartedAt,
+          subscriptionExpiresAt: data.subscriptionExpiresAt || existing.subscriptionExpiresAt,
         });
       }
     }
@@ -479,6 +482,59 @@ export async function setStudentBlockInFirestore(email: string, isIndividuallyBl
     const user = d.data() as StudentUser;
     if (user.email && user.email.trim().toLowerCase() === cleanEmail) {
       await setDoc(d.ref, { isIndividuallyBlocked }, { merge: true });
+    }
+  }
+}
+
+export async function setStudentSubscriptionInFirestore(
+  email: string,
+  subscription: {
+    days?: number;
+    startedAt?: string;
+    expiresAt?: string;
+  } | null
+): Promise<void> {
+  const cleanEmail = email.trim().toLowerCase();
+  const querySnap = await getDocs(collection(db, COLLECTIONS.USERS));
+  let found = false;
+  for (const d of querySnap.docs) {
+    const user = d.data() as StudentUser;
+    if (user.email && user.email.trim().toLowerCase() === cleanEmail) {
+      found = true;
+      if (subscription && subscription.expiresAt) {
+        await setDoc(d.ref, {
+          subscriptionDays: subscription.days,
+          subscriptionStartedAt: subscription.startedAt,
+          subscriptionExpiresAt: subscription.expiresAt,
+        }, { merge: true });
+      } else {
+        await setDoc(d.ref, {
+          subscriptionDays: null,
+          subscriptionStartedAt: null,
+          subscriptionExpiresAt: null,
+        }, { merge: true });
+      }
+    }
+  }
+
+  // If student record was not in querySnap, set directly with deterministic doc ID
+  if (!found) {
+    const safeDocId = 'usr_' + cleanEmail.replace(/[^a-z0-9]/g, '_');
+    const docRef = doc(db, COLLECTIONS.USERS, safeDocId);
+    if (subscription && subscription.expiresAt) {
+      await setDoc(docRef, {
+        email: cleanEmail,
+        subscriptionDays: subscription.days,
+        subscriptionStartedAt: subscription.startedAt,
+        subscriptionExpiresAt: subscription.expiresAt,
+      }, { merge: true });
+    } else {
+      await setDoc(docRef, {
+        email: cleanEmail,
+        subscriptionDays: null,
+        subscriptionStartedAt: null,
+        subscriptionExpiresAt: null,
+      }, { merge: true });
     }
   }
 }

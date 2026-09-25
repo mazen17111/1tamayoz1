@@ -186,6 +186,62 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             </button>
           </div>
 
+          {/* Student Subscription Progress & Expiration Card */}
+          {user.subscriptionExpiresAt && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-800 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>مدة اشتراكك في المنصة:</span>
+                  <strong className="text-blue-700 dark:text-blue-300">
+                    {new Date(user.subscriptionExpiresAt).getTime() > Date.now()
+                      ? `باقي ${Math.max(1, Math.ceil((new Date(user.subscriptionExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} يوم`
+                      : 'انتهى الاشتراك'}
+                  </strong>
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  ينتهي: {new Date(user.subscriptionExpiresAt).toLocaleDateString('ar-SA')}
+                </span>
+              </div>
+
+              {/* Progress Bar advancing towards end of time */}
+              <div className="w-full h-2.5 bg-blue-200 dark:bg-blue-900/60 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-600 dark:bg-blue-400 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(
+                        1,
+                        Math.round(
+                          ((Date.now() -
+                            (user.subscriptionStartedAt
+                              ? new Date(user.subscriptionStartedAt).getTime()
+                              : new Date(user.subscriptionExpiresAt).getTime() -
+                                (user.subscriptionDays || 30) * 86400000)) /
+                            Math.max(
+                              1000,
+                              new Date(user.subscriptionExpiresAt).getTime() -
+                                (user.subscriptionStartedAt
+                                  ? new Date(user.subscriptionStartedAt).getTime()
+                                  : new Date(user.subscriptionExpiresAt).getTime() -
+                                    (user.subscriptionDays || 30) * 86400000)
+                            )) *
+                            100
+                        )
+                      )
+                    )}%`,
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                <span>تاريخ التفعيل: {user.subscriptionStartedAt ? new Date(user.subscriptionStartedAt).toLocaleDateString('ar-SA') : 'البداية'}</span>
+                <span>المدة الإجمالية: {user.subscriptionDays || 30} يوماً</span>
+              </div>
+            </div>
+          )}
+
           {/* Section Navigation Tabs */}
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
             <button

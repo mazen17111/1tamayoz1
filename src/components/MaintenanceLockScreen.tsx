@@ -65,6 +65,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   onOpenAuth,
   isIndividuallyBlocked,
   isGuestLocked,
+  isSubscriptionExpired,
   lockMessage,
   onOpenAdminAuth,
 }) => {
@@ -72,9 +73,18 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   const handleAdmin = onOpenAdmin || onOpenAdminAuth;
 
   const isSubscriptionMode = accessConfig?.lockReason === 'subscription';
+  const isSubscriptionExpiredMode = Boolean(
+    isSubscriptionExpired ||
+    (currentUser &&
+      currentUser.role !== 'admin' &&
+      currentUser.subscriptionExpiresAt &&
+      new Date(currentUser.subscriptionExpiresAt).getTime() <= Date.now())
+  );
 
   const defaultLockMessage = isGuestLocked
     ? 'مرحباً بك في منصة التميز التعليمية. جميع الشروحات المرئية، المذكرات، والملفات، والاختبارات التفاعلية محجوبة ومقفلة لغير المسجلين. يرجى تسجيل الدخول إلى حسابك أو إنشاء حساب جديد لفتح كافة أقسام ومصادر المنصة فوراً.'
+    : isSubscriptionExpiredMode
+    ? `عزيزي الطالب (${currentUser?.name || ''})، لقد انتهى اشتراكك في المنصة. يرجى التواصل مع المشرف لتجديد وتفعيل الاشتراك لمتابعة كافة الشروحات والاختبارات.`
     : isIndividuallyBlocked
     ? `عزيزي الطالب (${currentUser?.name || currentUser?.email || ''})، تم إيقاف وقفل وصول حسابك إلى المنصة بشكل خاص من قِبل إدارة المنصة. يرجى التواصل مع المشرف للاستفسار وتفعيل حسابك.`
     : isSubscriptionMode
@@ -90,7 +100,9 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   // Build clean WhatsApp link
   const rawWhatsapp = accessConfig?.whatsappNumber?.trim() || '';
   const cleanPhone = rawWhatsapp.replace(/[^0-9]/g, '');
-  const rawMsg = accessConfig?.whatsappMessage?.trim() || 'السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة التميز التعليمية';
+  const rawMsg = isSubscriptionExpiredMode
+    ? 'السلام عليكم يا أستاذ، لقد انتهى اشتراكي في منصة التميز وأرغب في تجديد وتفعيل الاشتراك'
+    : (accessConfig?.whatsappMessage?.trim() || 'السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة التميز التعليمية');
   const encodedMsg = encodeURIComponent(
     currentUser 
       ? `${rawMsg}\n(الاسم: ${currentUser.name} - الإيميل: ${currentUser.email})`
@@ -220,7 +232,12 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
 
         {/* Top Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold border mb-5 shadow-xs bg-slate-800/80 border-slate-700">
-          {isSubscriptionMode ? (
+          {isSubscriptionExpiredMode ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-amber-400 font-bold">تنبيه: انتهى اشتراكك في المنصة ⏳</span>
+            </>
+          ) : isSubscriptionMode ? (
             <>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-emerald-400">تنبيه الاشتراك والوصول للمنصة</span>
@@ -235,7 +252,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
 
         {/* Dynamic Icon */}
         <div className="relative mx-auto mb-5 w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl">
-          {isSubscriptionMode ? (
+          {isSubscriptionExpiredMode || isSubscriptionMode ? (
             <div className="w-full h-full rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shadow-emerald-500/10">
               <WhatsAppIcon className="w-11 h-11 text-emerald-400" />
             </div>
@@ -246,17 +263,21 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
           )}
           <span className="absolute -top-1 -right-1 flex h-4 w-4">
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-              isSubscriptionMode ? 'bg-emerald-400' : 'bg-amber-400'
+              isSubscriptionExpiredMode || isSubscriptionMode ? 'bg-emerald-400' : 'bg-amber-400'
             }`}></span>
             <span className={`relative inline-flex rounded-full h-4 w-4 ${
-              isSubscriptionMode ? 'bg-emerald-500' : 'bg-amber-500'
+              isSubscriptionExpiredMode || isSubscriptionMode ? 'bg-emerald-500' : 'bg-amber-500'
             }`}></span>
           </span>
         </div>
 
         {/* Title */}
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-3">
-          {isSubscriptionMode ? 'انتهى اشتراكك أو الحساب بانتظار التفعيل' : 'المنصة قيد الصيانة المؤقتة'}
+          {isSubscriptionExpiredMode 
+            ? 'انتهى اشتراكك في المنصة' 
+            : isSubscriptionMode 
+            ? 'انتهى اشتراكك أو الحساب بانتظار التفعيل' 
+            : 'المنصة قيد الصيانة المؤقتة'}
         </h1>
 
         {/* Notice Box */}
