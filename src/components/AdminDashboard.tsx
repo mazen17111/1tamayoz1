@@ -332,13 +332,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const now = new Date();
       const expiresAt = numDays > 0 ? new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString() : undefined;
       const startedAt = numDays > 0 ? now.toISOString() : undefined;
+      const emailLower = email.trim().toLowerCase();
+
+      setPlatformAccess((prev) => {
+        const nextSubs = { ...(prev.studentSubscriptions || {}) };
+        if (numDays > 0 && expiresAt && startedAt) {
+          nextSubs[emailLower] = {
+            days: numDays,
+            startedAt,
+            expiresAt,
+          };
+        } else {
+          delete nextSubs[emailLower];
+        }
+        return {
+          ...prev,
+          studentSubscriptions: nextSubs,
+        };
+      });
 
       setAdminStats((prev) => {
         if (!prev || !prev.students) return prev;
         return {
           ...prev,
           students: prev.students.map((s) =>
-            s.email.toLowerCase() === email.toLowerCase()
+            s.email.toLowerCase() === emailLower
               ? {
                   ...s,
                   subscriptionDays: numDays > 0 ? numDays : undefined,
@@ -1181,6 +1199,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // 2. High-performance compression & permanent cloud/server upload
       const res = await uploadQuizImagePermanently(file);
       handleQuestionChange(qIdx, 'imageUrl', res.url);
+      handleQuestionChange(qIdx, 'imageData', res.dataUrl);
       showToast('تم ضغط صورة السؤال وحفظها بشكل دائم ومؤمّن بنجاح');
     } catch (err: any) {
       showToast(`فشل رفع الصورة: ${err.message}`);

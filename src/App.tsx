@@ -20,6 +20,7 @@ const StudentProfileModal = lazy(() => import('./components/StudentProfileModal'
 const AuthModal = lazy(() => import('./components/AuthModal').then(m => ({ default: m.AuthModal })));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const ExternalQuizConfirmModal = lazy(() => import('./components/ExternalQuizConfirmModal').then(m => ({ default: m.ExternalQuizConfirmModal })));
+const StudentFoldersModal = lazy(() => import('./components/StudentFoldersModal').then(m => ({ default: m.StudentFoldersModal })));
 import { 
   GraduationCap, 
   Sparkles, 
@@ -174,6 +175,7 @@ export default function App() {
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [activeFile, setActiveFile] = useState<FileItem | null>(null);
+  const [isFoldersModalOpen, setIsFoldersModalOpen] = useState<boolean>(false);
 
   // External quiz confirmation state
   const [externalQuizToConfirm, setExternalQuizToConfirm] = useState<Quiz | null>(null);
@@ -233,7 +235,31 @@ export default function App() {
       if (student.email) {
         apiService.fetchStudentProfile(student.email).then((fresh) => {
           if (fresh) {
-            setCurrentUser((prev) => (prev ? { ...prev, ...fresh } : fresh));
+            setCurrentUser((prev) => {
+              if (!prev) return fresh;
+              return {
+                ...prev,
+                ...fresh,
+                progress: {
+                  completedVideoIds: Array.from(new Set([
+                    ...(prev.progress?.completedVideoIds || []),
+                    ...(fresh.progress?.completedVideoIds || []),
+                  ])),
+                  completedQuizAttempts: [
+                    ...(prev.progress?.completedQuizAttempts || []),
+                    ...(fresh.progress?.completedQuizAttempts || []),
+                  ],
+                  bookmarkedResourceIds: Array.from(new Set([
+                    ...(prev.progress?.bookmarkedResourceIds || []),
+                    ...(fresh.progress?.bookmarkedResourceIds || []),
+                  ])),
+                  questionFolders: apiService.mergeQuestionFolders(
+                    prev.progress?.questionFolders,
+                    fresh.progress?.questionFolders
+                  ),
+                },
+              };
+            });
           }
         }).catch(() => {});
       }
@@ -366,7 +392,7 @@ export default function App() {
       ? currentBookmarks.filter((id) => id !== resourceId)
       : [...currentBookmarks, resourceId];
 
-    // Instant optimistic update for 0ms fluid feedback
+    // 1. Instant optimistic update for 0ms fluid feedback
     const optimisticUser: StudentUser = {
       ...currentUser,
       progress: {
@@ -375,12 +401,23 @@ export default function App() {
       },
     };
     setCurrentUser(optimisticUser);
+
+    // 2. Synchronous local backup (0ms) so logout / refresh keeps it immediately
+    apiService.saveCurrentStudent(optimisticUser);
+    if (currentUser.email) {
+      apiService.saveLocalStudentBookmarks(currentUser.email, newBookmarks);
+    }
+
     showToast(isAlreadyBookmarked ? 'تمت إزالة المصدر من المحفوظات' : '⭐ تم حفظ وتثبيت المصدر في المفضلة بنجاح!');
 
+    // 3. Multi-tier persistent sync across Firestore and Server
     try {
       const updated = await apiService.recordProgress({
         userId: currentUser.id,
+        userEmail: currentUser.email,
+        email: currentUser.email,
         bookmarkedResourceId: resourceId,
+        bookmarkedResourceIds: newBookmarks,
       });
       if (updated) {
         setCurrentUser(updated);
@@ -544,7 +581,26 @@ export default function App() {
   };
 
   const handleAuthSuccess = (user: StudentUser) => {
-    setCurrentUser(user);
+    const cleanEmail = user.email?.trim().toLowerCase();
+    const localBookmarks = cleanEmail ? apiService.getLocalStudentBookmarks(cleanEmail) : [];
+    const localFolders = cleanEmail ? apiService.getLocalQuestionFolders(cleanEmail) : [];
+    const mergedUser: StudentUser = {
+      ...user,
+      progress: {
+        completedVideoIds: user.progress?.completedVideoIds || [],
+        completedQuizAttempts: user.progress?.completedQuizAttempts || [],
+        bookmarkedResourceIds: Array.from(new Set([
+          ...(user.progress?.bookmarkedResourceIds || []),
+          ...localBookmarks,
+        ])),
+        questionFolders: apiService.mergeQuestionFolders(
+          user.progress?.questionFolders,
+          localFolders
+        ),
+      },
+    };
+    setCurrentUser(mergedUser);
+    apiService.saveCurrentStudent(mergedUser);
     if (user.role === 'admin') {
       setIsAdminOpen(true);
     }
@@ -573,12 +629,24 @@ export default function App() {
     (currentUser.isIndividuallyBlocked || (currentUserEmail && blockedStudentEmails.includes(currentUserEmail)))
   );
 
-  // Student Subscription expiry check (تحديد مدة الاشتراك بالأيام وعند وصوله لليوم الأخير تقفل المنصة)
+  // Student-specific subscription resolution (منفصل ومستقل تماماً لكل طالب حسب بريده)
+  const currentStudentSub = currentUserEmail
+    ? platformData.settings?.access?.studentSubscriptions?.[currentUserEmail]
+    : null;
+
+  const effectiveSubscriptionExpiresAt =
+    currentStudentSub?.expiresAt || currentUser?.subscriptionExpiresAt;
+  const effectiveSubscriptionDays =
+    currentStudentSub?.days !== undefined ? currentStudentSub.days : currentUser?.subscriptionDays;
+  const effectiveSubscriptionStartedAt =
+    currentStudentSub?.startedAt || currentUser?.subscriptionStartedAt;
+
+  // Student Subscription expiry check (تحديد مدة الاشتراك بالأيام وعند وصوله لليوم الأخير تقفل المنصة على هذا الطالب فقط)
   const isSubscriptionExpired = Boolean(
     currentUser &&
     currentUser.role !== 'admin' &&
-    currentUser.subscriptionExpiresAt &&
-    new Date(currentUser.subscriptionExpiresAt).getTime() <= Date.now()
+    effectiveSubscriptionExpiresAt &&
+    new Date(effectiveSubscriptionExpiresAt).getTime() <= Date.now()
   );
 
   // Guest lockdown: completely lock all videos, files, quizzes and content for non-logged in users as explicitly requested!
@@ -614,7 +682,12 @@ export default function App() {
 
       {/* Top Navigation */}
       <Navbar
-        currentUser={currentUser}
+        currentUser={currentUser ? {
+          ...currentUser,
+          subscriptionDays: effectiveSubscriptionDays,
+          subscriptionStartedAt: effectiveSubscriptionStartedAt,
+          subscriptionExpiresAt: effectiveSubscriptionExpiresAt,
+        } : null}
         isAdminOpen={isAdminOpen}
         activeSectionTitle={activeSection?.title}
         theme={theme}
@@ -624,6 +697,7 @@ export default function App() {
           setIsAuthModalOpen(true);
         }}
         onOpenProfile={() => setIsProfileModalOpen(true)}
+        onOpenFolders={() => setIsFoldersModalOpen(true)}
         onOpenStats={handleOpenStats}
         onOpenAdmin={handleOpenAdmin}
         onGoHome={() => {
@@ -638,9 +712,14 @@ export default function App() {
       <AnnouncementBanner announcement={platformData.settings?.announcement} />
 
       {/* Student Subscription Bar with Days Countdown & Advancing Progress Bar */}
-      {!isAdminOpen && !showLockScreen && currentUser && currentUser.role !== 'admin' && currentUser.subscriptionExpiresAt && (
+      {!isAdminOpen && !showLockScreen && currentUser && currentUser.role !== 'admin' && effectiveSubscriptionExpiresAt && (
         <StudentSubscriptionBanner
-          currentUser={currentUser}
+          currentUser={{
+            ...currentUser,
+            subscriptionDays: effectiveSubscriptionDays,
+            subscriptionStartedAt: effectiveSubscriptionStartedAt,
+            subscriptionExpiresAt: effectiveSubscriptionExpiresAt,
+          }}
           accessConfig={platformData.settings?.access}
         />
       )}
@@ -650,7 +729,12 @@ export default function App() {
         <MaintenanceLockScreen
           accessConfig={platformData.settings?.access}
           lockMessage={platformData.settings?.access?.lockMessage}
-          currentUser={currentUser}
+          currentUser={currentUser ? {
+            ...currentUser,
+            subscriptionDays: effectiveSubscriptionDays,
+            subscriptionStartedAt: effectiveSubscriptionStartedAt,
+            subscriptionExpiresAt: effectiveSubscriptionExpiresAt,
+          } : null}
           isIndividuallyBlocked={isIndividuallyBlocked}
           isGuestLocked={isGuestLocked}
           isSubscriptionExpired={isSubscriptionExpired}
@@ -803,6 +887,9 @@ export default function App() {
             resourceTitle={
               platformData.resources.find((r) => r.id === activeQuiz.resourceId)?.title || 'المصدر'
             }
+            currentUser={currentUser}
+            onUpdateUser={(updated) => setCurrentUser(updated)}
+            onShowToast={showToast}
             onClose={() => setActiveQuiz(null)}
             onComplete={handleQuizComplete}
           />
@@ -825,16 +912,36 @@ export default function App() {
         {/* 3. Student Profile Modal */}
         {isProfileModalOpen && currentUser && (
           <StudentProfileModal
-            user={currentUser}
+            user={{
+              ...currentUser,
+              subscriptionDays: effectiveSubscriptionDays,
+              subscriptionStartedAt: effectiveSubscriptionStartedAt,
+              subscriptionExpiresAt: effectiveSubscriptionExpiresAt,
+            }}
             resources={platformData.resources}
             sections={platformData.sections}
             videos={platformData.videos}
+            onOpenFolders={() => setIsFoldersModalOpen(true)}
             onClose={() => setIsProfileModalOpen(false)}
             onLogout={handleLogout}
             onNavigateToResource={(secId) => {
               setSelectedSectionId(secId);
             }}
             onPlayVideo={handlePlayVideo}
+          />
+        )}
+
+        {/* 4. Student Question Folders (مجلداتي) Modal */}
+        {isFoldersModalOpen && currentUser && (
+          <StudentFoldersModal
+            currentUser={currentUser}
+            onUpdateUser={(updated) => setCurrentUser(updated)}
+            onClose={() => setIsFoldersModalOpen(false)}
+            onStartQuiz={(folderQuiz) => {
+              setIsFoldersModalOpen(false);
+              handleStartQuiz(folderQuiz);
+            }}
+            onShowToast={showToast}
           />
         )}
 

@@ -400,12 +400,26 @@ export async function deleteDocFromFirestore(
  */
 export async function getStudentFromFirestore(email: string): Promise<StudentUser | null> {
   const cleanEmail = email.trim().toLowerCase();
-  const querySnap = await getDocs(collection(db, COLLECTIONS.USERS));
-  for (const d of querySnap.docs) {
-    const user = d.data() as StudentUser;
-    if (user.email.toLowerCase() === cleanEmail) {
-      return user;
+  const safeDocId = 'usr_' + cleanEmail.replace(/[^a-z0-9]/g, '_');
+  try {
+    const directDoc = await getDoc(doc(db, COLLECTIONS.USERS, safeDocId));
+    if (directDoc.exists()) {
+      return directDoc.data() as StudentUser;
     }
+  } catch (err) {
+    // Continue to collection scan if direct lookup fails
+  }
+
+  try {
+    const querySnap = await getDocs(collection(db, COLLECTIONS.USERS));
+    for (const d of querySnap.docs) {
+      const user = d.data() as StudentUser;
+      if (user.email && user.email.toLowerCase() === cleanEmail) {
+        return user;
+      }
+    }
+  } catch (e) {
+    console.warn('Firestore getDocs users lookup warning:', e);
   }
   return null;
 }
@@ -536,5 +550,23 @@ export async function setStudentSubscriptionInFirestore(
         subscriptionExpiresAt: null,
       }, { merge: true });
     }
+  }
+
+  // Also persist to settings.access.studentSubscriptions in main platform doc
+  try {
+    const mainDocRef = doc(db, COLLECTIONS.PLATFORM_DATA, MAIN_DATA_DOC_ID);
+    if (subscription && subscription.expiresAt) {
+      await setDoc(mainDocRef, {
+        settings: {
+          access: {
+            studentSubscriptions: {
+              [cleanEmail]: subscription,
+            },
+          },
+        },
+      }, { merge: true });
+    }
+  } catch (e) {
+    console.warn('Could not sync student subscription to main firestore doc:', e);
   }
 }

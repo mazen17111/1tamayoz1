@@ -127,9 +127,17 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
   const [isSavingSubscription, setIsSavingSubscription] = useState<boolean>(false);
 
   const handleOpenSubscriptionModal = (student: any) => {
-    setSubscriptionModalStudent(student);
-    if (student.subscriptionDays && student.subscriptionDays > 0) {
-      setSubscriptionDaysInput(String(student.subscriptionDays));
+    const emailLower = (student.email || '').trim().toLowerCase();
+    const subRecord = accessConfig?.studentSubscriptions?.[emailLower];
+    const studentWithSub = {
+      ...student,
+      subscriptionDays: subRecord?.days !== undefined ? subRecord.days : student.subscriptionDays,
+      subscriptionStartedAt: subRecord?.startedAt || student.subscriptionStartedAt,
+      subscriptionExpiresAt: subRecord?.expiresAt || student.subscriptionExpiresAt,
+    };
+    setSubscriptionModalStudent(studentWithSub);
+    if (studentWithSub.subscriptionDays && studentWithSub.subscriptionDays > 0) {
+      setSubscriptionDaysInput(String(studentWithSub.subscriptionDays));
     } else {
       setSubscriptionDaysInput('30');
     }
@@ -638,16 +646,21 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
                   );
                   const isUpdating = updatingStudentEmail === student.email;
 
+                  const emailLower = (student.email || '').trim().toLowerCase();
+                  const subRecord = accessConfig?.studentSubscriptions?.[emailLower];
+                  const effExpiresAt = subRecord?.expiresAt || student.subscriptionExpiresAt;
+                  const effDays = subRecord?.days !== undefined ? subRecord.days : student.subscriptionDays;
+
                   const hasActiveSubscription = Boolean(
-                    student.subscriptionExpiresAt &&
-                    new Date(student.subscriptionExpiresAt).getTime() > Date.now()
+                    effExpiresAt &&
+                    new Date(effExpiresAt).getTime() > Date.now()
                   );
                   const remainingDays = hasActiveSubscription
-                    ? Math.max(1, Math.ceil((new Date(student.subscriptionExpiresAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                    ? Math.max(1, Math.ceil((new Date(effExpiresAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
                     : 0;
                   const isSubscriptionExpired = Boolean(
-                    student.subscriptionExpiresAt &&
-                    new Date(student.subscriptionExpiresAt).getTime() <= Date.now()
+                    effExpiresAt &&
+                    new Date(effExpiresAt).getTime() <= Date.now()
                   );
 
                   return (

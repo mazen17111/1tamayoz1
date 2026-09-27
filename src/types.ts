@@ -2,6 +2,8 @@ export interface Question {
   id: string;
   questionText: string;
   imageUrl?: string;
+  imageData?: string; // Permanent embedded compressed data URL (never expires or 404s)
+  diskUrl?: string; // Optional local disk mirror
   options: string[];
   correctOptionIndex: number;
   explanation?: string;
@@ -113,6 +115,21 @@ export interface QuizAttempt {
   questionsDetails?: QuizAttemptQuestionDetail[];
 }
 
+export interface SavedQuestionItem extends Question {
+  sourceQuizId?: string;
+  sourceQuizTitle?: string;
+  sourceSectionTitle?: string;
+  addedAt: string;
+}
+
+export interface QuestionFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+  color?: string;
+  questions: SavedQuestionItem[];
+}
+
 export interface StudentUser {
   id: string;
   name: string;
@@ -129,6 +146,7 @@ export interface StudentUser {
     completedVideoIds: string[];
     completedQuizAttempts: QuizAttempt[];
     bookmarkedResourceIds: string[];
+    questionFolders?: QuestionFolder[];
   };
 }
 
@@ -189,6 +207,13 @@ export interface PlatformAnnouncement {
   updatedAt?: string;
 }
 
+export interface StudentSubscriptionRecord {
+  days: number;
+  startedAt: string;
+  expiresAt: string;
+  studentName?: string;
+}
+
 export interface PlatformAccessConfig {
   isLocked: boolean; // قفل المنصة على الطلاب
   lockReason?: 'maintenance' | 'subscription'; // نوع القفل: صيانة أو تفعيل اشتراك
@@ -200,6 +225,7 @@ export interface PlatformAccessConfig {
   subscriptionButtonText?: string; // نص الزر الرئيسي (مثلاً: اشترك الآن عبر واتساب)
   allowedStudentEmails: string[]; // الطلاب المصرح لهم بالدخول في وضع القفل
   blockedStudentEmails?: string[]; // الطلاب المحظورين/المقفل عليهم بشكل فردي خاص حتى لو المنصة مفتوحة للجميع
+  studentSubscriptions?: Record<string, StudentSubscriptionRecord>; // اشتراكات الطلاب الفردية المستقلة لكل طالب على حدة
   updatedAt?: string;
 }
 

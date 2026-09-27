@@ -68,7 +68,21 @@ export const initialPlatformData: PlatformData = {
       "telegramUsername": "",
       "subscriptionButtonText": "اشترك الآن أو فعّل اشتراكك عبر واتساب",
       "allowedStudentEmails": [],
-      "updatedAt": "2026-09-24T06:54:28.949Z"
+      "updatedAt": "2026-09-24T06:54:28.949Z",
+      "studentSubscriptions": {
+        "mazenmahrous31@gmail.com": {
+          "days": 3,
+          "startedAt": "2026-09-26T08:09:41.737Z",
+          "expiresAt": "2026-09-29T08:09:41.737Z",
+          "studentName": "mazenmahrous31"
+        },
+        "student@tamayuz.edu": {
+          "days": 30,
+          "startedAt": "2026-09-26T08:09:49.385Z",
+          "expiresAt": "2026-10-26T08:09:49.385Z",
+          "studentName": "أحمد السعيد (طالب تجريبي)"
+        }
+      }
     }
   },
   "deletedIds": [
@@ -78,7 +92,8 @@ export const initialPlatformData: PlatformData = {
     "file-1788686146883",
     "quiz-1788686005901",
     "vid-1788842498895",
-    "vid-1788842825351"
+    "vid-1788842825351",
+    "quiz-1790410653641"
   ],
   "updatedAt": "2026-09-24T07:34:46.427Z"
 };
@@ -128,6 +143,20 @@ export const defaultPlatformSettings: PlatformSettings = {
     "telegramUsername": "",
     "subscriptionButtonText": "اشترك الآن أو فعّل اشتراكك عبر واتساب",
     "allowedStudentEmails": [],
-    "updatedAt": "2026-09-24T06:54:28.949Z"
+    "updatedAt": "2026-09-24T06:54:28.949Z",
+    "studentSubscriptions": {
+      "mazenmahrous31@gmail.com": {
+        "days": 3,
+        "startedAt": "2026-09-26T08:09:41.737Z",
+        "expiresAt": "2026-09-29T08:09:41.737Z",
+        "studentName": "mazenmahrous31"
+      },
+      "student@tamayuz.edu": {
+        "days": 30,
+        "startedAt": "2026-09-26T08:09:49.385Z",
+        "expiresAt": "2026-10-26T08:09:49.385Z",
+        "studentName": "أحمد السعيد (طالب تجريبي)"
+      }
+    }
   }
 };

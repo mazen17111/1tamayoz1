@@ -11,11 +11,6 @@ export const StudentSubscriptionBanner: React.FC<StudentSubscriptionBannerProps>
   currentUser,
   accessConfig,
 }) => {
-  // If user is admin or has no active subscription set, don't show
-  if (!currentUser || currentUser.role === 'admin' || !currentUser.subscriptionExpiresAt) {
-    return null;
-  }
-
   // Force re-render periodically to update days remaining daily
   const [, setTick] = useState(0);
 
@@ -27,17 +22,28 @@ export const StudentSubscriptionBanner: React.FC<StudentSubscriptionBannerProps>
     return () => clearInterval(interval);
   }, []);
 
+  const emailLower = (currentUser?.email || '').trim().toLowerCase();
+  const subRecord = emailLower && accessConfig?.studentSubscriptions ? accessConfig.studentSubscriptions[emailLower] : null;
+
+  const effectiveExpiresAt = subRecord?.expiresAt || currentUser?.subscriptionExpiresAt;
+  const totalDays = subRecord?.days !== undefined ? subRecord.days : (currentUser?.subscriptionDays || 30);
+  const effectiveStartedAt = subRecord?.startedAt || currentUser?.subscriptionStartedAt;
+
+  // If user is admin or has no active subscription set, don't show
+  if (!currentUser || currentUser.role === 'admin' || !effectiveExpiresAt) {
+    return null;
+  }
+
   const now = Date.now();
-  const expiresTime = new Date(currentUser.subscriptionExpiresAt).getTime();
+  const expiresTime = new Date(effectiveExpiresAt).getTime();
   
   // If already expired, platform lock screen will handle it
   if (expiresTime <= now) {
     return null;
   }
 
-  const totalDays = currentUser.subscriptionDays || 30;
-  const startedTime = currentUser.subscriptionStartedAt
-    ? new Date(currentUser.subscriptionStartedAt).getTime()
+  const startedTime = effectiveStartedAt
+    ? new Date(effectiveStartedAt).getTime()
     : expiresTime - totalDays * 24 * 60 * 60 * 1000;
 
   const totalMs = Math.max(1000, expiresTime - startedTime);
@@ -144,11 +150,11 @@ export const StudentSubscriptionBanner: React.FC<StudentSubscriptionBannerProps>
                   </span>
                 </div>
 
-                <p className="text-xs text-slate-300 flex items-center gap-1.5 mt-0.5">
+                <p className="text-xs text-slate-300 flex flex-wrap items-center gap-1.5 mt-0.5">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
                   <span>تاريخ انتهاء الصلاحية والإغلاق: <strong className="text-white font-medium">{formattedExpiry}</strong></span>
-                  <span className="hidden sm:inline text-slate-500">•</span>
-                  <span className="hidden sm:inline text-slate-400">المدة المحددة: {totalDays} يوماً</span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-blue-200 bg-blue-900/60 px-2 py-0.5 rounded font-bold">المدة المحددة لك: {totalDays} يوماً</span>
                 </p>
               </div>
             </div>

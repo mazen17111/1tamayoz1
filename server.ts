@@ -786,7 +786,26 @@ startxref
           description: '',
           updatedAt: new Date().toISOString()
         },
-        settings: incoming.settings || current.settings || defaultPlatformSettings,
+        settings: {
+          ...(incoming.settings || current.settings || defaultPlatformSettings),
+          access: {
+            ...defaultPlatformSettings.access,
+            ...(current.settings?.access || {}),
+            ...(incoming.settings?.access || {}),
+            allowedStudentEmails: Array.from(new Set([
+              ...(Array.isArray(current.settings?.access?.allowedStudentEmails) ? current.settings.access.allowedStudentEmails : []),
+              ...(Array.isArray(incoming.settings?.access?.allowedStudentEmails) ? incoming.settings.access.allowedStudentEmails : []),
+            ])),
+            blockedStudentEmails: Array.from(new Set([
+              ...(Array.isArray(current.settings?.access?.blockedStudentEmails) ? current.settings.access.blockedStudentEmails : []),
+              ...(Array.isArray(incoming.settings?.access?.blockedStudentEmails) ? incoming.settings.access.blockedStudentEmails : []),
+            ])),
+            studentSubscriptions: {
+              ...(current.settings?.access?.studentSubscriptions || {}),
+              ...(incoming.settings?.access?.studentSubscriptions || {}),
+            },
+          },
+        },
         deletedIds: finalDeleted,
         updatedAt: incoming.updatedAt || new Date().toISOString()
       };
@@ -901,6 +920,10 @@ startxref
           ...defaultPlatformSettings.access,
           ...(current.access || {}),
           ...(incoming.access || {}),
+          studentSubscriptions: {
+            ...(current.access?.studentSubscriptions || {}),
+            ...(incoming.access?.studentSubscriptions || {}),
+          },
           updatedAt: incoming.access?.updatedAt || new Date().toISOString()
         }
       };
@@ -1514,7 +1537,8 @@ startxref
     res.json({ success: true, id });
   });
 
-// Helper to write any incoming base64 image permanently into UPLOADS_DIR disk storage
+// Helper to guarantee permanent persistence of quiz/question images:
+// Writes a disk mirror in UPLOADS_DIR and preserves the permanent data URL so the image never disappears
 function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'): string | undefined {
   if (!dataUriOrUrl || typeof dataUriOrUrl !== 'string') return undefined;
   const trimmed = dataUriOrUrl.trim();
@@ -1532,9 +1556,10 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     const filename = `${prefix}-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
     const filePath = path.join(UPLOADS_DIR, filename);
     fs.writeFileSync(filePath, buffer);
-    return `/uploads/${filename}`;
+    // Keep self-contained Data URL so the image remains 100% permanently intact across container restarts
+    return trimmed;
   } catch (err) {
-    console.warn('Could not persist base64 image to disk:', err);
+    console.warn('Could not persist base64 image:', err);
     return trimmed;
   }
 }
@@ -1566,14 +1591,19 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       imageUrl: cleanImageUrl,
       isExternal: isExt,
       externalUrl: externalUrl?.trim() || undefined,
-      questions: rawQuestions.map((q: any, i: number) => ({
-        id: q.id || `q-${Date.now()}-${i}`,
-        questionText: q.questionText?.trim() || '',
-        imageUrl: persistBase64Image(q.imageUrl, 'q-img'),
-        options: Array.isArray(q.options) ? q.options : ['أ', 'ب', 'ج', 'د'],
-        correctOptionIndex: Number(q.correctOptionIndex) || 0,
-        explanation: q.explanation?.trim() || undefined,
-      })),
+      questions: rawQuestions.map((q: any, i: number) => {
+        const rawImg = q.imageUrl?.trim() || q.imageData?.trim() || undefined;
+        const permanentImg = persistBase64Image(rawImg, 'q-img');
+        return {
+          id: q.id || `q-${Date.now()}-${i}`,
+          questionText: q.questionText?.trim() || '',
+          imageUrl: permanentImg,
+          imageData: permanentImg && permanentImg.startsWith('data:image/') ? permanentImg : (q.imageData || permanentImg),
+          options: Array.isArray(q.options) ? q.options : ['أ', 'ب', 'ج', 'د'],
+          correctOptionIndex: Number(q.correctOptionIndex) || 0,
+          explanation: q.explanation?.trim() || undefined,
+        };
+      }),
       createdAt: req.body.createdAt || new Date().toISOString(),
     };
 
@@ -1623,14 +1653,19 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       isExternal: isExt,
       externalUrl: externalUrl !== undefined ? (externalUrl ? externalUrl.trim() : undefined) : platformData.quizzes[index].externalUrl,
       questions: questions && Array.isArray(questions)
-        ? questions.map((q: any, i: number) => ({
-            id: q.id || `q-${Date.now()}-${i}`,
-            questionText: q.questionText?.trim() || '',
-            imageUrl: persistBase64Image(q.imageUrl, 'q-img'),
-            options: Array.isArray(q.options) ? q.options : ['أ', 'ب', 'ج', 'د'],
-            correctOptionIndex: Number(q.correctOptionIndex) || 0,
-            explanation: q.explanation?.trim() || undefined,
-          }))
+        ? questions.map((q: any, i: number) => {
+            const rawImg = q.imageUrl?.trim() || q.imageData?.trim() || undefined;
+            const permanentImg = persistBase64Image(rawImg, 'q-img');
+            return {
+              id: q.id || `q-${Date.now()}-${i}`,
+              questionText: q.questionText?.trim() || '',
+              imageUrl: permanentImg,
+              imageData: permanentImg && permanentImg.startsWith('data:image/') ? permanentImg : (q.imageData || permanentImg),
+              options: Array.isArray(q.options) ? q.options : ['أ', 'ب', 'ج', 'د'],
+              correctOptionIndex: Number(q.correctOptionIndex) || 0,
+              explanation: q.explanation?.trim() || undefined,
+            };
+          })
         : platformData.quizzes[index].questions,
     };
     savePlatformData(platformData);
@@ -1713,14 +1748,53 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
 
   // Student progress update (supports /api/student/progress and /api/user/progress)
   const handleProgressUpdate = (req: express.Request, res: express.Response) => {
-    const { userId, completedVideoId, videoId, toggleVideoId, action, completedVideoIds, quizAttempt, bookmarkedResourceId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ error: 'معرف الطالب مطلوب' });
+    const { 
+      userId, 
+      userEmail,
+      email,
+      completedVideoId, 
+      videoId, 
+      toggleVideoId, 
+      action, 
+      completedVideoIds, 
+      quizAttempt, 
+      bookmarkedResourceId,
+      bookmarkedResourceIds,
+      questionFolders
+    } = req.body;
+
+    const targetEmail = (email || userEmail || (quizAttempt && quizAttempt.studentEmail) || '').trim().toLowerCase();
+
+    if (!userId && !targetEmail) {
+      return res.status(400).json({ error: 'معرف الطالب أو بريده الإلكتروني مطلوب' });
     }
+
     usersData = loadUsers();
-    const userIndex = usersData.users.findIndex((u) => u.id === userId);
+    let userIndex = usersData.users.findIndex((u) => 
+      (userId && u.id === userId) || (targetEmail && u.email && u.email.trim().toLowerCase() === targetEmail)
+    );
+
     if (userIndex === -1) {
-      return res.status(404).json({ error: 'المستخدم غير موجود' });
+      if (targetEmail) {
+        // Auto-create or register student record so bookmarks & progress are never lost
+        const newUser: StudentUser & { passwordHash: string } = {
+          id: userId || `usr-${Date.now()}`,
+          name: req.body.studentName || targetEmail.split('@')[0],
+          email: targetEmail,
+          role: 'student',
+          passwordHash: hashPassword('123456'),
+          createdAt: new Date().toISOString(),
+          progress: {
+            completedVideoIds: [],
+            completedQuizAttempts: [],
+            bookmarkedResourceIds: [],
+          },
+        };
+        usersData.users.push(newUser);
+        userIndex = usersData.users.length - 1;
+      } else {
+        return res.status(404).json({ error: 'المستخدم غير موجود' });
+      }
     }
 
     const user = usersData.users[userIndex];
@@ -1733,6 +1807,9 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     }
     if (!user.progress.completedVideoIds) {
       user.progress.completedVideoIds = [];
+    }
+    if (!user.progress.bookmarkedResourceIds) {
+      user.progress.bookmarkedResourceIds = [];
     }
 
     if (Array.isArray(completedVideoIds)) {
@@ -1781,12 +1858,22 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       ];
     }
 
-    if (bookmarkedResourceId) {
-      if (user.progress.bookmarkedResourceIds.includes(bookmarkedResourceId)) {
-        user.progress.bookmarkedResourceIds = user.progress.bookmarkedResourceIds.filter((id) => id !== bookmarkedResourceId);
+    // Handle bookmarked resources: array replace or toggle
+    if (Array.isArray(bookmarkedResourceIds)) {
+      user.progress.bookmarkedResourceIds = Array.from(new Set(bookmarkedResourceIds));
+    } else if (bookmarkedResourceId) {
+      const currentList = new Set(user.progress.bookmarkedResourceIds || []);
+      if (currentList.has(bookmarkedResourceId)) {
+        currentList.delete(bookmarkedResourceId);
       } else {
-        user.progress.bookmarkedResourceIds.push(bookmarkedResourceId);
+        currentList.add(bookmarkedResourceId);
       }
+      user.progress.bookmarkedResourceIds = Array.from(currentList);
+    }
+
+    // Handle Question Folders
+    if (Array.isArray(questionFolders)) {
+      user.progress.questionFolders = questionFolders;
     }
 
     saveUsers(usersData);
@@ -1839,6 +1926,7 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       students: students.map((s) => {
         const emailLower = s.email.toLowerCase();
         const isIndividuallyBlocked = Boolean(s.isIndividuallyBlocked || blockedEmails.includes(emailLower));
+        const sub = platformData.settings?.access?.studentSubscriptions?.[emailLower];
         return {
           id: s.id,
           name: s.name,
@@ -1848,9 +1936,9 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
           completedQuizzesCount: s.progress?.completedQuizAttempts?.length || 0,
           isApproved: Boolean(s.isApproved || allowedEmails.includes(emailLower)),
           isIndividuallyBlocked,
-          subscriptionDays: s.subscriptionDays,
-          subscriptionStartedAt: s.subscriptionStartedAt,
-          subscriptionExpiresAt: s.subscriptionExpiresAt,
+          subscriptionDays: sub?.days ?? s.subscriptionDays,
+          subscriptionStartedAt: sub?.startedAt ?? s.subscriptionStartedAt,
+          subscriptionExpiresAt: sub?.expiresAt ?? s.subscriptionExpiresAt,
         };
       }),
       totalAttemptsCount: allAttempts.length,
@@ -1861,14 +1949,37 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
   // Dedicated Student Subscription duration endpoint (manual days entry)
   app.post('/api/admin/student-subscription', (req, res) => {
     usersData = loadUsers();
+    platformData = loadPlatformData();
     const { email, days } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'البريد الإلكتروني للطالب مطلوب' });
     }
     const cleanEmail = email.trim().toLowerCase();
-    const student = usersData.users.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
+    let student = usersData.users.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
     if (!student) {
-      return res.status(404).json({ error: 'حساب الطالب غير موجود' });
+      student = {
+        id: `usr_${Date.now()}`,
+        name: cleanEmail.split('@')[0],
+        email: cleanEmail,
+        role: 'student',
+        createdAt: new Date().toISOString(),
+        progress: {
+          completedVideoIds: [],
+          completedQuizAttempts: [],
+          bookmarkedResourceIds: [],
+        },
+      };
+      usersData.users.push(student);
+    }
+
+    if (!platformData.settings) {
+      platformData.settings = {} as any;
+    }
+    if (!platformData.settings.access) {
+      platformData.settings.access = { allowedStudentEmails: [], isLocked: false, lockMessage: '' };
+    }
+    if (!platformData.settings.access.studentSubscriptions) {
+      platformData.settings.access.studentSubscriptions = {};
     }
 
     const numDays = days !== undefined && days !== null ? Number(days) : 0;
@@ -1878,13 +1989,25 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       student.subscriptionDays = numDays;
       student.subscriptionStartedAt = now.toISOString();
       student.subscriptionExpiresAt = expiresAt;
+
+      platformData.settings.access.studentSubscriptions[cleanEmail] = {
+        days: numDays,
+        startedAt: now.toISOString(),
+        expiresAt,
+        studentName: student.name,
+      };
     } else {
       delete student.subscriptionDays;
       delete student.subscriptionStartedAt;
       delete student.subscriptionExpiresAt;
+      if (platformData.settings.access.studentSubscriptions) {
+        delete platformData.settings.access.studentSubscriptions[cleanEmail];
+      }
     }
 
     saveUsers(usersData);
+    savePlatformData(platformData);
+
     res.json({
       success: true,
       message: numDays > 0 ? `تم تعيين الوقت بنجاح وستغلق بعد عدد الأيام المحدد (${numDays} يوم)` : 'تم إلغاء مدة الاشتراك بنجاح',
@@ -1910,10 +2033,14 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     }
     const blockedEmails = (platformData.settings?.access?.blockedStudentEmails || []).map((e: string) => e.toLowerCase());
     const isIndividuallyBlocked = Boolean(student.isIndividuallyBlocked || blockedEmails.includes(cleanEmail));
+    const sub = platformData.settings?.access?.studentSubscriptions?.[cleanEmail];
     const { passwordHash, ...safeUser } = student;
     res.json({
       user: {
         ...safeUser,
+        subscriptionDays: sub?.days ?? safeUser.subscriptionDays,
+        subscriptionStartedAt: sub?.startedAt ?? safeUser.subscriptionStartedAt,
+        subscriptionExpiresAt: sub?.expiresAt ?? safeUser.subscriptionExpiresAt,
         isIndividuallyBlocked,
       },
     });

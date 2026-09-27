@@ -19,7 +19,8 @@ import {
   Check,
   XCircle,
   HelpCircle,
-  ListChecks
+  ListChecks,
+  Folder
 } from 'lucide-react';
 
 interface StudentProfileModalProps {
@@ -31,6 +32,7 @@ interface StudentProfileModalProps {
   onLogout: () => void;
   onNavigateToResource: (sectionId: string, resourceId: string) => void;
   onPlayVideo?: (video: VideoItem) => void;
+  onOpenFolders?: () => void;
 }
 
 export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
@@ -42,6 +44,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   onLogout,
   onNavigateToResource,
   onPlayVideo,
+  onOpenFolders,
 }) => {
   const [activeTab, setActiveTab] = useState<'quizzes' | 'videos' | 'bookmarks'>('quizzes');
   const [expandedAttemptId, setExpandedAttemptId] = useState<string | null>(null);
@@ -192,10 +195,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span>مدة اشتراكك في المنصة:</span>
+                  <span>اشتراكك في المنصة:</span>
+                  <span className="bg-blue-600 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow-2xs">
+                    {user.subscriptionDays ? `${user.subscriptionDays} يوم` : 'محدد'}
+                  </span>
                   <strong className="text-blue-700 dark:text-blue-300">
                     {new Date(user.subscriptionExpiresAt).getTime() > Date.now()
-                      ? `باقي ${Math.max(1, Math.ceil((new Date(user.subscriptionExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} يوم`
+                      ? `(باقي ${Math.max(1, Math.ceil((new Date(user.subscriptionExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} يوم)`
                       : 'انتهى الاشتراك'}
                   </strong>
                 </span>
@@ -237,7 +243,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
               <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                 <span>تاريخ التفعيل: {user.subscriptionStartedAt ? new Date(user.subscriptionStartedAt).toLocaleDateString('ar-SA') : 'البداية'}</span>
-                <span>المدة الإجمالية: {user.subscriptionDays || 30} يوماً</span>
+                <span>المدة الإجمالية المحددة: <strong className="font-black text-blue-700 dark:text-blue-300">{user.subscriptionDays || 30} يوماً</strong></span>
               </div>
             </div>
           )}
@@ -283,6 +289,22 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <span className="hidden sm:inline">المفضلة</span>
               <span>({bookmarkedIds.length})</span>
             </button>
+
+            {onOpenFolders && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenFolders();
+                }}
+                className="py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer text-amber-700 dark:text-amber-300 hover:text-amber-900 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30"
+                title="فتح وإدارة مجلدات الأسئلة الخاصة بي"
+              >
+                <Folder className="w-3.5 h-3.5" />
+                <span>مجلداتي</span>
+                <span>({user.progress?.questionFolders?.length || 0})</span>
+              </button>
+            )}
           </div>
 
           {/* 1. QUIZZES SCORES TAB */}

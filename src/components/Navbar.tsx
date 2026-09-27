@@ -11,7 +11,8 @@ import {
   Sparkles,
   BarChart3,
   Radio,
-  Clock
+  Clock,
+  Folder
 } from 'lucide-react';
 import { StudentUser, LiveStreamConfig } from '../types';
 
@@ -19,6 +20,7 @@ interface NavbarProps {
   currentUser: StudentUser | null;
   onOpenAuth: () => void;
   onOpenProfile: () => void;
+  onOpenFolders?: () => void;
   onOpenAdmin: () => void;
   onGoHome: () => void;
   onLogout: () => void;
@@ -34,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onOpenAuth,
   onOpenProfile,
+  onOpenFolders,
   onOpenAdmin,
   onGoHome,
   onLogout,
@@ -135,6 +138,24 @@ export const Navbar: React.FC<NavbarProps> = ({
               <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>إحصائياتي</span>
             </button>
+
+            {/* زر مجلداتي (للطلاب المسجلين) */}
+            {currentUser && onOpenFolders && (
+              <button
+                id="navbar-folders-btn"
+                onClick={onOpenFolders}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-amber-800 dark:hover:text-amber-300 hover:bg-amber-50/70 dark:hover:bg-slate-800 border border-transparent hover:border-amber-200 dark:hover:border-amber-800/50 transition-all cursor-pointer"
+                title="مستودع مجلداتي والتدرب على الأسئلة المحفوظة"
+              >
+                <Folder className="w-4 h-4 text-amber-500" />
+                <span>مجلداتي</span>
+                {(currentUser.progress?.questionFolders?.length || 0) > 0 && (
+                  <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                    {currentUser.progress?.questionFolders?.length}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* زر البث المباشر (يظهر فقط عند التفعيل) */}
             {liveStream?.isEnabled && liveStream?.streamUrl && (
@@ -326,6 +347,24 @@ export const Navbar: React.FC<NavbarProps> = ({
               إحصائياتي (الدرجات والفيديوهات)
             </span>
           </button>
+
+          {currentUser && onOpenFolders && (
+            <button
+              onClick={() => {
+                onOpenFolders();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-lg text-sm font-semibold bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-300 border border-amber-200/50 dark:border-amber-800/40"
+            >
+              <span className="flex items-center gap-2">
+                <Folder className="w-4 h-4 text-amber-500" />
+                <span>مجلداتي (مستودع الأسئلة)</span>
+              </span>
+              <span className="text-xs font-black bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                {currentUser.progress?.questionFolders?.length || 0} مجلدات
+              </span>
+            </button>
+          )}
 
           {currentUser ? (
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">

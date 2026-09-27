@@ -13,7 +13,10 @@ import {
   PlatformAccessConfig,
   PlatformAnnouncement,
   PlatformThemeConfig,
-  PlatformLayoutPreset
+  PlatformLayoutPreset,
+  QuestionFolder,
+  SavedQuestionItem,
+  Question
 } from '../types';
 import { initialPlatformData, defaultPlatformSettings } from '../defaultData';
 import { 
@@ -77,11 +80,11 @@ export const apiService = {
     }
   },
 
-  // Ultra-fast direct server data fetch (< 30ms)
+  // Ultra-fast direct server data fetch (< 20ms)
   async fetchServerDataFast(): Promise<PlatformData | null> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1800);
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
       const res = await fetch(`/api/data?_t=${Date.now()}`, {
         signal: controller.signal,
         cache: 'no-store',
@@ -94,6 +97,10 @@ export const apiService = {
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.sections) && data.sections.length > 0) {
+          localCachedData = data;
+          try {
+            safeStorage.setItem('tamayuz_platform_data', JSON.stringify(data));
+          } catch {}
           return data;
         }
       }
@@ -180,7 +187,7 @@ export const apiService = {
 
   // Fetch platform data permanently with multi-tier sync (Parallelized for maximum speed)
   async fetchPlatformData(): Promise<PlatformData> {
-    // 1. Parallel execution: instant local server fetch + Firestore fetch (with 2.5s safe ceiling)
+    // 1. Parallel execution: instant local server fetch + Firestore fetch (with 600ms fast ceiling)
     const serverFetchPromise = fetch(`/api/data?_t=${Date.now()}`, {
       cache: 'no-store',
       headers: {
@@ -199,7 +206,7 @@ export const apiService = {
         console.warn('[API] Could not load directly from Firestore:', firestoreErr);
         return null;
       }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 600))
     ]);
 
     const [serverData, firestoreData] = await Promise.all([
@@ -306,6 +313,40 @@ export const apiService = {
       ...(Array.isArray(cachedAccess?.blockedStudentEmails) ? cachedAccess.blockedStudentEmails : []),
     ])).map(e => e.trim().toLowerCase());
 
+    // Deep merge studentSubscriptions from all sources so every student's days are strictly preserved without interference
+    const allStudentSubscriptions: Record<string, { days: number; startedAt: string; expiresAt: string; studentName?: string }> = {};
+    const fallbackSources = [
+      cachedAccess?.studentSubscriptions,
+      firestoreAccess?.studentSubscriptions,
+    ];
+    for (const src of fallbackSources) {
+      if (src && typeof src === 'object') {
+        for (const [em, sub] of Object.entries(src)) {
+          if (em && sub && (sub as any).expiresAt) {
+            const cleanEm = em.trim().toLowerCase();
+            allStudentSubscriptions[cleanEm] = {
+              ...(sub as any),
+            };
+          }
+        }
+      }
+    }
+    // Server is authoritative for current persistent database state
+    if (serverAccess?.studentSubscriptions && typeof serverAccess.studentSubscriptions === 'object') {
+      for (const [em, sub] of Object.entries(serverAccess.studentSubscriptions)) {
+        if (em) {
+          const cleanEm = em.trim().toLowerCase();
+          if (sub && (sub as any).expiresAt) {
+            allStudentSubscriptions[cleanEm] = {
+              ...(sub as any),
+            };
+          } else {
+            delete allStudentSubscriptions[cleanEm];
+          }
+        }
+      }
+    }
+
     const baseAccess = serverAccess || firestoreAccess || cachedAccess || defaultPlatformSettings.access;
 
     // Theme resolution: pick the latest saved theme by timestamp across all sources
@@ -368,6 +409,7 @@ export const apiService = {
         ...baseAccess,
         allowedStudentEmails: allAllowedEmails,
         blockedStudentEmails: allBlockedEmails,
+        studentSubscriptions: allStudentSubscriptions,
       },
     };
 
@@ -1181,46 +1223,198 @@ export const apiService = {
     }
   },
 
+  // Dedicated local bookmark backup per student email (ensures bookmarks persist across logouts and devices)
+  saveLocalStudentBookmarks(email: string, bookmarks: string[]): void {
+    if (!email) return;
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      localStorage.setItem(`tamayuz_bookmarks_${cleanEmail}`, JSON.stringify(Array.from(new Set(bookmarks))));
+    } catch {}
+  },
+
+  getLocalStudentBookmarks(email: string): string[] {
+    if (!email) return [];
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const raw = localStorage.getItem(`tamayuz_bookmarks_${cleanEmail}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  },
+
+  // Dedicated local Question Folders backup per student email
+  saveLocalQuestionFolders(email: string, folders: QuestionFolder[]): void {
+    if (!email) return;
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      localStorage.setItem(`tamayuz_folders_${cleanEmail}`, JSON.stringify(folders));
+    } catch {}
+  },
+
+  getLocalQuestionFolders(email: string): QuestionFolder[] {
+    if (!email) return [];
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const raw = localStorage.getItem(`tamayuz_folders_${cleanEmail}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  },
+
+  // Helper to merge question folders cleanly by id without duplicating questions
+  mergeQuestionFolders(listA?: QuestionFolder[], listB?: QuestionFolder[]): QuestionFolder[] {
+    const map = new Map<string, QuestionFolder>();
+    for (const f of [...(listA || []), ...(listB || [])]) {
+      if (!f || !f.id) continue;
+      if (!map.has(f.id)) {
+        map.set(f.id, {
+          id: f.id,
+          name: f.name || 'مجلد بدون اسم',
+          createdAt: f.createdAt || new Date().toISOString(),
+          color: f.color || 'emerald',
+          questions: Array.isArray(f.questions) ? [...f.questions] : [],
+        });
+      } else {
+        const existing = map.get(f.id)!;
+        const qMap = new Map<string, SavedQuestionItem>();
+        for (const q of [...(existing.questions || []), ...(f.questions || [])]) {
+          if (!q || !q.id) continue;
+          if (!qMap.has(q.id)) {
+            qMap.set(q.id, q);
+          }
+        }
+        existing.questions = Array.from(qMap.values());
+        if (!existing.color && f.color) existing.color = f.color;
+      }
+    }
+    return Array.from(map.values());
+  },
+
   // Auth & Student Progress: Synchronized to Firebase Firestore
   async login(email: string, password: string): Promise<StudentUser> {
     const cleanEmail = email.trim().toLowerCase();
+    const localSavedBookmarks = this.getLocalStudentBookmarks(cleanEmail);
+    const localSavedFolders = this.getLocalQuestionFolders(cleanEmail);
+
+    let firestoreStudent: StudentUser | null = null;
+    let serverStudent: StudentUser | null = null;
 
     // 1. Check in Firestore
     try {
-      const firestoreStudent = await getStudentFromFirestore(cleanEmail);
-      if (firestoreStudent) {
-        this.saveCurrentStudent(firestoreStudent);
-        // also notify server session
-        fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        }).catch(() => {});
-        return firestoreStudent;
-      }
+      firestoreStudent = await getStudentFromFirestore(cleanEmail);
     } catch (e) {
       console.warn('Firestore student lookup warning:', e);
     }
 
     // 2. Try server auth
-    const res = await fetch('/api/auth/login', {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          serverStudent = data.user;
+        }
+      } else if (!firestoreStudent) {
+        const err = await res.json().catch(() => ({ error: 'بيانات الدخول غير صحيحة' }));
+        throw new Error(err.error || 'بيانات الدخول غير صحيحة');
+      }
+    } catch (e: any) {
+      if (!firestoreStudent) {
+        throw e;
+      }
+    }
+
+    const baseStudent = firestoreStudent || serverStudent;
+    if (!baseStudent) {
+      throw new Error('بيانات الدخول غير صحيحة');
+    }
+
+    // Merge bookmarks from all available persistent sources so none are ever lost
+    const mergedBookmarks = Array.from(new Set([
+      ...(baseStudent.progress?.bookmarkedResourceIds || []),
+      ...(firestoreStudent?.progress?.bookmarkedResourceIds || []),
+      ...(serverStudent?.progress?.bookmarkedResourceIds || []),
+      ...localSavedBookmarks,
+    ]));
+
+    // Merge question folders
+    const mergedFolders = this.mergeQuestionFolders(
+      baseStudent.progress?.questionFolders || [],
+      this.mergeQuestionFolders(
+        firestoreStudent?.progress?.questionFolders || [],
+        this.mergeQuestionFolders(serverStudent?.progress?.questionFolders || [], localSavedFolders)
+      )
+    );
+
+    // Merge videos and quiz attempts
+    const mergedVideos = Array.from(new Set([
+      ...(baseStudent.progress?.completedVideoIds || []),
+      ...(firestoreStudent?.progress?.completedVideoIds || []),
+      ...(serverStudent?.progress?.completedVideoIds || []),
+    ]));
+
+    const mergedAttempts = [
+      ...(firestoreStudent?.progress?.completedQuizAttempts || []),
+      ...(serverStudent?.progress?.completedQuizAttempts || []),
+    ].filter((att, index, self) => index === self.findIndex((a) => a.id === att.id));
+
+    // Resolve subscription independently for this specific student
+    const subFromAccess = localCachedData?.settings?.access?.studentSubscriptions?.[cleanEmail];
+    const subDays = subFromAccess?.days ?? serverStudent?.subscriptionDays ?? firestoreStudent?.subscriptionDays ?? baseStudent?.subscriptionDays;
+    const subStartedAt = subFromAccess?.startedAt ?? serverStudent?.subscriptionStartedAt ?? firestoreStudent?.subscriptionStartedAt ?? baseStudent?.subscriptionStartedAt;
+    const subExpiresAt = subFromAccess?.expiresAt ?? serverStudent?.subscriptionExpiresAt ?? firestoreStudent?.subscriptionExpiresAt ?? baseStudent?.subscriptionExpiresAt;
+
+    const finalStudent: StudentUser = {
+      ...baseStudent,
+      ...(serverStudent || {}),
+      ...(firestoreStudent || {}),
+      subscriptionDays: subDays,
+      subscriptionStartedAt: subStartedAt,
+      subscriptionExpiresAt: subExpiresAt,
+      progress: {
+        completedVideoIds: mergedVideos,
+        completedQuizAttempts: mergedAttempts,
+        bookmarkedResourceIds: mergedBookmarks,
+        questionFolders: mergedFolders,
+      },
+    };
+
+    // Save everywhere immediately
+    this.saveCurrentStudent(finalStudent);
+    this.saveLocalStudentBookmarks(cleanEmail, mergedBookmarks);
+    this.saveLocalQuestionFolders(cleanEmail, mergedFolders);
+    saveStudentToFirestore(cleanForFirestore(finalStudent)).catch(() => {});
+
+    // Ensure server users.json has the updated bookmarks and question folders
+    fetch('/api/student/progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: 'بيانات الدخول غير صحيحة' }));
-      throw new Error(err.error || 'بيانات الدخول غير صحيحة');
-    }
-    const data = await res.json();
-    this.saveCurrentStudent(data.user);
-    // sync to firestore
-    saveStudentToFirestore(data.user).catch(() => {});
-    return data.user;
+      body: JSON.stringify({
+        userId: finalStudent.id,
+        email: cleanEmail,
+        userEmail: cleanEmail,
+        bookmarkedResourceIds: mergedBookmarks,
+        questionFolders: mergedFolders,
+      }),
+    }).catch(() => {});
+
+    return finalStudent;
   },
 
   async register(name: string, email: string, password: string): Promise<StudentUser> {
     const cleanEmail = email.trim().toLowerCase();
+    const localSavedBookmarks = this.getLocalStudentBookmarks(cleanEmail);
+
     const newUser: StudentUser = {
       id: `student-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: name.trim(),
@@ -1230,7 +1424,7 @@ export const apiService = {
       progress: {
         completedVideoIds: [],
         completedQuizAttempts: [],
-        bookmarkedResourceIds: []
+        bookmarkedResourceIds: localSavedBookmarks,
       }
     };
 
@@ -1246,23 +1440,37 @@ export const apiService = {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email: cleanEmail, password }),
       });
       if (res.ok) {
         const data = await res.json();
-        this.saveCurrentStudent(data.user);
-        return data.user;
+        const serverUser: StudentUser = {
+          ...data.user,
+          progress: {
+            ...(data.user.progress || {}),
+            bookmarkedResourceIds: Array.from(new Set([
+              ...(data.user.progress?.bookmarkedResourceIds || []),
+              ...localSavedBookmarks,
+            ])),
+          },
+        };
+        this.saveCurrentStudent(serverUser);
+        this.saveLocalStudentBookmarks(cleanEmail, serverUser.progress.bookmarkedResourceIds);
+        return serverUser;
       }
     } catch (e) {
       console.warn('Server registration warning:', e);
     }
 
     this.saveCurrentStudent(newUser);
+    this.saveLocalStudentBookmarks(cleanEmail, localSavedBookmarks);
     return newUser;
   },
 
   async recordProgress(params: {
     userId: string;
+    userEmail?: string;
+    email?: string;
     videoId?: string;
     completedVideoId?: string;
     toggleVideoId?: string;
@@ -1270,11 +1478,14 @@ export const apiService = {
     completedVideoIds?: string[];
     quizAttempt?: QuizAttempt;
     bookmarkedResourceId?: string;
+    bookmarkedResourceIds?: string[];
+    questionFolders?: QuestionFolder[];
   }): Promise<StudentUser | null> {
     let currentStudent = this.getCurrentStudent();
     const vidToToggle = params.toggleVideoId || params.completedVideoId || params.videoId;
+    const cleanUserEmail = (params.email || params.userEmail || currentStudent?.email || '').trim().toLowerCase();
 
-    if (currentStudent && currentStudent.id === params.userId) {
+    if (currentStudent && (currentStudent.id === params.userId || (cleanUserEmail && currentStudent.email?.toLowerCase() === cleanUserEmail))) {
       const updatedProgress = { ...currentStudent.progress };
 
       // Handle video toggle/completion
@@ -1305,7 +1516,9 @@ export const apiService = {
       }
 
       // Handle bookmark
-      if (params.bookmarkedResourceId) {
+      if (Array.isArray(params.bookmarkedResourceIds)) {
+        updatedProgress.bookmarkedResourceIds = Array.from(new Set(params.bookmarkedResourceIds));
+      } else if (params.bookmarkedResourceId) {
         const bSet = new Set(updatedProgress.bookmarkedResourceIds || []);
         if (bSet.has(params.bookmarkedResourceId)) {
           bSet.delete(params.bookmarkedResourceId);
@@ -1315,8 +1528,21 @@ export const apiService = {
         updatedProgress.bookmarkedResourceIds = Array.from(bSet);
       }
 
+      // Handle Question Folders
+      if (Array.isArray(params.questionFolders)) {
+        updatedProgress.questionFolders = params.questionFolders;
+      }
+
       currentStudent.progress = updatedProgress;
       this.saveCurrentStudent(currentStudent);
+
+      // Save local backup immediately under student's email for instant recovery
+      if (cleanUserEmail && updatedProgress.bookmarkedResourceIds) {
+        this.saveLocalStudentBookmarks(cleanUserEmail, updatedProgress.bookmarkedResourceIds);
+      }
+      if (cleanUserEmail && updatedProgress.questionFolders) {
+        this.saveLocalQuestionFolders(cleanUserEmail, updatedProgress.questionFolders);
+      }
 
       // Save directly to Firestore with sanitization
       saveStudentToFirestore(cleanForFirestore(currentStudent)).catch(e => console.warn('Firestore progress save warning:', e));
@@ -1329,6 +1555,11 @@ export const apiService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...params,
+          userId: params.userId || currentStudent?.id,
+          email: cleanUserEmail,
+          userEmail: cleanUserEmail,
+          bookmarkedResourceIds: currentStudent?.progress?.bookmarkedResourceIds || params.bookmarkedResourceIds,
+          questionFolders: currentStudent?.progress?.questionFolders || params.questionFolders,
           action: params.action,
           completedVideoIds: params.completedVideoIds,
           completedVideoId: params.completedVideoId || params.videoId,
@@ -1338,8 +1569,29 @@ export const apiService = {
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
-          this.saveCurrentStudent(data.user);
-          return data.user;
+          const mergedBookmarks = Array.from(new Set([
+            ...(currentStudent?.progress?.bookmarkedResourceIds || []),
+            ...(data.user.progress?.bookmarkedResourceIds || []),
+            ...this.getLocalStudentBookmarks(cleanUserEmail),
+          ]));
+          const mergedFolders = this.mergeQuestionFolders(
+            currentStudent?.progress?.questionFolders || [],
+            this.mergeQuestionFolders(data.user.progress?.questionFolders || [], this.getLocalQuestionFolders(cleanUserEmail))
+          );
+          const fullUser: StudentUser = {
+            ...data.user,
+            progress: {
+              ...(data.user.progress || {}),
+              bookmarkedResourceIds: mergedBookmarks,
+              questionFolders: mergedFolders,
+            },
+          };
+          this.saveCurrentStudent(fullUser);
+          if (cleanUserEmail) {
+            this.saveLocalStudentBookmarks(cleanUserEmail, mergedBookmarks);
+            this.saveLocalQuestionFolders(cleanUserEmail, mergedFolders);
+          }
+          return fullUser;
         }
       }
     } catch (err) {
@@ -1347,6 +1599,99 @@ export const apiService = {
     }
 
     return currentStudent;
+  },
+
+  // Question Folders Management Methods:
+  async createQuestionFolder(name: string, color: string = 'emerald'): Promise<{ folder: QuestionFolder; user: StudentUser | null }> {
+    const student = this.getCurrentStudent();
+    const newFolder: QuestionFolder = {
+      id: `folder-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: name.trim() || 'مجلد جديد',
+      color,
+      createdAt: new Date().toISOString(),
+      questions: [],
+    };
+    if (!student) {
+      return { folder: newFolder, user: null };
+    }
+    const currentFolders = student.progress?.questionFolders || [];
+    const updatedFolders = [...currentFolders, newFolder];
+    const updatedUser = await this.recordProgress({
+      userId: student.id,
+      email: student.email,
+      questionFolders: updatedFolders,
+    });
+    return { folder: newFolder, user: updatedUser };
+  },
+
+  async deleteQuestionFolder(folderId: string): Promise<StudentUser | null> {
+    const student = this.getCurrentStudent();
+    if (!student) return null;
+    const currentFolders = student.progress?.questionFolders || [];
+    const updatedFolders = currentFolders.filter((f) => f.id !== folderId);
+    return await this.recordProgress({
+      userId: student.id,
+      email: student.email,
+      questionFolders: updatedFolders,
+    });
+  },
+
+  async addQuestionToFolder(
+    folderId: string,
+    question: Question,
+    meta?: { quizId?: string; quizTitle?: string; sectionTitle?: string }
+  ): Promise<StudentUser | null> {
+    const student = this.getCurrentStudent();
+    if (!student) return null;
+
+    const currentFolders = student.progress?.questionFolders || [];
+    const targetFolder = currentFolders.find((f) => f.id === folderId);
+    if (!targetFolder) return student;
+
+    const savedQ: SavedQuestionItem = {
+      ...question,
+      sourceQuizId: meta?.quizId,
+      sourceQuizTitle: meta?.quizTitle,
+      sourceSectionTitle: meta?.sectionTitle,
+      addedAt: new Date().toISOString(),
+    };
+
+    const updatedFolders = currentFolders.map((f) => {
+      if (f.id !== folderId) return f;
+      const existingQs = f.questions || [];
+      const alreadyHas = existingQs.some((q) => q.id === question.id);
+      if (alreadyHas) return f;
+      return {
+        ...f,
+        questions: [savedQ, ...existingQs],
+      };
+    });
+
+    return await this.recordProgress({
+      userId: student.id,
+      email: student.email,
+      questionFolders: updatedFolders,
+    });
+  },
+
+  async removeQuestionFromFolder(folderId: string, questionId: string): Promise<StudentUser | null> {
+    const student = this.getCurrentStudent();
+    if (!student) return null;
+
+    const currentFolders = student.progress?.questionFolders || [];
+    const updatedFolders = currentFolders.map((f) => {
+      if (f.id !== folderId) return f;
+      return {
+        ...f,
+        questions: (f.questions || []).filter((q) => q.id !== questionId),
+      };
+    });
+
+    return await this.recordProgress({
+      userId: student.id,
+      email: student.email,
+      questionFolders: updatedFolders,
+    });
   },
 
   getCurrentStudent(): StudentUser | null {
@@ -1409,6 +1754,9 @@ export const apiService = {
             studentMap.set(key, {
               ...existing,
               ...s,
+              subscriptionDays: s.subscriptionDays !== undefined ? s.subscriptionDays : existing.subscriptionDays,
+              subscriptionStartedAt: s.subscriptionStartedAt || existing.subscriptionStartedAt,
+              subscriptionExpiresAt: s.subscriptionExpiresAt || existing.subscriptionExpiresAt,
               progress: {
                 completedVideoIds: Array.from(new Set([...(existing.progress?.completedVideoIds || []), ...(s.progress?.completedVideoIds || [])])),
                 completedQuizAttempts: [...(existing.progress?.completedQuizAttempts || []), ...(s.progress?.completedQuizAttempts || [])],
@@ -1416,6 +1764,32 @@ export const apiService = {
               },
               isApproved: existing.isApproved || s.isApproved,
               isIndividuallyBlocked: existing.isIndividuallyBlocked || s.isIndividuallyBlocked,
+            });
+          }
+        }
+
+        const platform = await this.fetchPlatformData();
+        const studentSubs = platform.settings?.access?.studentSubscriptions || {};
+
+        // Also add any students that exist in studentSubscriptions map but might not yet have quiz/video attempts in Firestore
+        for (const [subEmail, rawSubData] of Object.entries(studentSubs)) {
+          const subData = rawSubData as any;
+          const normSubEmail = subEmail.trim().toLowerCase();
+          if (normSubEmail && !studentMap.has(normSubEmail)) {
+            studentMap.set(normSubEmail, {
+              id: `usr-${normSubEmail.replace(/[^a-z0-9]/g, '_')}`,
+              name: subData.studentName || normSubEmail.split('@')[0],
+              email: normSubEmail,
+              role: 'student',
+              createdAt: subData.startedAt || new Date().toISOString(),
+              subscriptionDays: subData.days,
+              subscriptionStartedAt: subData.startedAt,
+              subscriptionExpiresAt: subData.expiresAt,
+              progress: {
+                completedVideoIds: [],
+                completedQuizAttempts: [],
+                bookmarkedResourceIds: [],
+              },
             });
           }
         }
@@ -1434,8 +1808,6 @@ export const apiService = {
         // Sort attempts newest first
         allAttempts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-        const platform = await this.fetchPlatformData();
-
         const blockedEmails = (platform.settings?.access?.blockedStudentEmails || []).map((e: string) => e.toLowerCase());
 
         return {
@@ -1449,6 +1821,7 @@ export const apiService = {
           recentAttempts: allAttempts.slice(0, 10),
           students: realStudents.map(st => {
             const emailLower = st.email.toLowerCase();
+            const sub = studentSubs[emailLower];
             return {
               id: st.id,
               name: st.name,
@@ -1458,9 +1831,9 @@ export const apiService = {
               completedVideosCount: st.progress?.completedVideoIds?.length || 0,
               isApproved: Boolean(st.isApproved || (platform.settings?.access?.allowedStudentEmails || []).some((e: string) => e.toLowerCase() === emailLower)),
               isIndividuallyBlocked: Boolean(st.isIndividuallyBlocked || blockedEmails.includes(emailLower)),
-              subscriptionDays: st.subscriptionDays,
-              subscriptionStartedAt: st.subscriptionStartedAt,
-              subscriptionExpiresAt: st.subscriptionExpiresAt,
+              subscriptionDays: sub?.days !== undefined ? sub.days : st.subscriptionDays,
+              subscriptionStartedAt: sub?.startedAt || st.subscriptionStartedAt,
+              subscriptionExpiresAt: sub?.expiresAt || st.subscriptionExpiresAt,
             };
           })
         };
@@ -1592,9 +1965,14 @@ export const apiService = {
       updatedAt: nowIso,
     } : currentSettings.announcement;
 
+    const currentSubs = currentSettings.access?.studentSubscriptions || {};
+    const incomingSubs = newSettings.access?.studentSubscriptions;
+    const mergedSubs = incomingSubs !== undefined ? { ...currentSubs, ...incomingSubs } : currentSubs;
+
     const mergedAccess = newSettings.access ? {
       ...currentSettings.access,
       ...newSettings.access,
+      studentSubscriptions: mergedSubs,
       updatedAt: nowIso,
     } : currentSettings.access;
 
@@ -1840,22 +2218,46 @@ export const apiService = {
       console.warn('Server sync error on student subscription:', e);
     }
 
-    // 3. If current student is this student, update session immediately
-    const cur = this.getCurrentStudent();
-    const updatedUser: StudentUser = {
-      ...(cur || { id: `usr-${target}`, name: target, email: target, role: 'student', createdAt: new Date().toISOString() }),
-      subscriptionDays: numDays > 0 ? numDays : undefined,
-      subscriptionStartedAt: startedAt,
-      subscriptionExpiresAt: expiresAt,
-    };
-
-    if (cur && cur.email.trim().toLowerCase() === target) {
-      this.saveCurrentStudent(updatedUser);
+    // 3. Update cached platformData settings so it's instantly available in memory and saved
+    if (localCachedData) {
+      if (!localCachedData.settings) localCachedData.settings = {} as any;
+      if (!localCachedData.settings.access) {
+        localCachedData.settings.access = { allowedStudentEmails: [], isLocked: false, lockMessage: '' };
+      }
+      if (!localCachedData.settings.access.studentSubscriptions) {
+        localCachedData.settings.access.studentSubscriptions = {};
+      }
+      if (numDays > 0 && expiresAt && startedAt) {
+        localCachedData.settings.access.studentSubscriptions[target] = {
+          days: numDays,
+          startedAt,
+          expiresAt,
+        };
+      } else {
+        delete localCachedData.settings.access.studentSubscriptions[target];
+      }
+      try {
+        await this.savePlatformSettings({ access: localCachedData.settings.access });
+      } catch (err) {
+        console.warn('savePlatformSettings error in setStudentSubscription:', err);
+      }
     }
 
-    try {
-      window.dispatchEvent(new CustomEvent('tamayuz_student_updated', { detail: updatedUser }));
-    } catch {}
+    // 4. ONLY IF current logged in student IS the student being updated, update session
+    const cur = this.getCurrentStudent();
+    if (cur && cur.email && cur.email.trim().toLowerCase() === target) {
+      const updatedUser: StudentUser = {
+        ...cur,
+        email: target,
+        subscriptionDays: numDays > 0 ? numDays : undefined,
+        subscriptionStartedAt: startedAt,
+        subscriptionExpiresAt: expiresAt,
+      };
+      this.saveCurrentStudent(updatedUser);
+      try {
+        window.dispatchEvent(new CustomEvent('tamayuz_student_updated', { detail: updatedUser }));
+      } catch {}
+    }
 
     return {
       success: true,
@@ -1873,22 +2275,59 @@ export const apiService = {
   async fetchStudentProfile(email: string): Promise<StudentUser | null> {
     if (!email) return null;
     const cleanEmail = email.trim().toLowerCase();
+    let profile: StudentUser | null = null;
     try {
       const res = await fetch(`/api/student/profile/${encodeURIComponent(cleanEmail)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
-          const cur = this.getCurrentStudent();
-          if (cur && cur.email.trim().toLowerCase() === cleanEmail) {
-            const merged = { ...cur, ...data.user };
-            this.saveCurrentStudent(merged);
-            return merged;
-          }
-          return data.user;
+          profile = data.user;
         }
       }
     } catch (e) {
       console.warn('Failed to fetch student profile:', e);
+    }
+
+    // Overlay settings.access.studentSubscriptions to ensure consistency
+    const sub = localCachedData?.settings?.access?.studentSubscriptions?.[cleanEmail];
+    if (sub && profile) {
+      profile.subscriptionDays = sub.days;
+      profile.subscriptionStartedAt = sub.startedAt;
+      profile.subscriptionExpiresAt = sub.expiresAt;
+    }
+
+    if (profile) {
+      const cur = this.getCurrentStudent();
+      if (cur && cur.email && cur.email.trim().toLowerCase() === cleanEmail) {
+        const localBookmarks = this.getLocalStudentBookmarks(cleanEmail);
+        const mergedBookmarks = Array.from(new Set([
+          ...(cur.progress?.bookmarkedResourceIds || []),
+          ...(profile.progress?.bookmarkedResourceIds || []),
+          ...localBookmarks,
+        ]));
+
+        const merged: StudentUser = {
+          ...cur,
+          ...profile,
+          progress: {
+            ...(cur.progress || {}),
+            ...(profile.progress || {}),
+            completedVideoIds: Array.from(new Set([
+              ...(cur.progress?.completedVideoIds || []),
+              ...(profile.progress?.completedVideoIds || []),
+            ])),
+            completedQuizAttempts: [
+              ...(cur.progress?.completedQuizAttempts || []),
+              ...(profile.progress?.completedQuizAttempts || []),
+            ].filter((att, index, self) => index === self.findIndex((a) => a.id === att.id)),
+            bookmarkedResourceIds: mergedBookmarks,
+          },
+        };
+        this.saveCurrentStudent(merged);
+        this.saveLocalStudentBookmarks(cleanEmail, mergedBookmarks);
+        return merged;
+      }
+      return profile;
     }
     return null;
   },

@@ -49,8 +49,47 @@
         ]
       },
       "subscriptionDays": 30,
-      "subscriptionStartedAt": "2026-09-25T10:06:07.632Z",
-      "subscriptionExpiresAt": "2026-10-25T10:06:07.632Z"
+      "subscriptionStartedAt": "2026-09-26T08:09:49.385Z",
+      "subscriptionExpiresAt": "2026-10-26T08:09:49.385Z"
+    },
+    {
+      "id": "usr_1790410181737",
+      "name": "mazenmahrous31",
+      "email": "mazenmahrous31@gmail.com",
+      "role": "student",
+      "createdAt": "2026-09-26T08:09:41.737Z",
+      "progress": {
+        "completedVideoIds": [],
+        "completedQuizAttempts": [],
+        "bookmarkedResourceIds": [
+          "res-quant-arithmetic"
+        ],
+        "questionFolders": [
+          {
+            "id": "fld-test-1",
+            "name": "أسئلة الهندسة الصعبة",
+            "color": "emerald",
+            "createdAt": "2026-09-27T08:00:00.000Z",
+            "questions": [
+              {
+                "id": "q-1",
+                "questionText": "إذا كان نصف قطر الدائرة 7 سم، فما مساحتها تقريباً؟",
+                "options": [
+                  "154 سم²",
+                  "44 سم²",
+                  "49 سم²",
+                  "308 سم²"
+                ],
+                "correctOptionIndex": 0,
+                "explanation": "مساحة الدائرة = ط × نق² = (22/7) × 7 × 7 = 154 سم²"
+              }
+            ]
+          }
+        ]
+      },
+      "subscriptionDays": 3,
+      "subscriptionStartedAt": "2026-09-26T08:09:41.737Z",
+      "subscriptionExpiresAt": "2026-09-29T08:09:41.737Z"
     }
   ]
 }
