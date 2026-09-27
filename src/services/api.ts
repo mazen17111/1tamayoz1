@@ -80,11 +80,11 @@ export const apiService = {
     }
   },
 
-  // Ultra-fast direct server data fetch (< 20ms)
+  // Ultra-fast direct server data fetch (< 30ms)
   async fetchServerDataFast(): Promise<PlatformData | null> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
       const res = await fetch(`/api/data?_t=${Date.now()}`, {
         signal: controller.signal,
         cache: 'no-store',
@@ -97,10 +97,6 @@ export const apiService = {
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.sections) && data.sections.length > 0) {
-          localCachedData = data;
-          try {
-            safeStorage.setItem('tamayuz_platform_data', JSON.stringify(data));
-          } catch {}
           return data;
         }
       }
@@ -187,7 +183,7 @@ export const apiService = {
 
   // Fetch platform data permanently with multi-tier sync (Parallelized for maximum speed)
   async fetchPlatformData(): Promise<PlatformData> {
-    // 1. Parallel execution: instant local server fetch + Firestore fetch (with 600ms fast ceiling)
+    // 1. Parallel execution: instant local server fetch + Firestore fetch (with 2.5s safe ceiling)
     const serverFetchPromise = fetch(`/api/data?_t=${Date.now()}`, {
       cache: 'no-store',
       headers: {
@@ -206,7 +202,7 @@ export const apiService = {
         console.warn('[API] Could not load directly from Firestore:', firestoreErr);
         return null;
       }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 600))
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
     ]);
 
     const [serverData, firestoreData] = await Promise.all([
@@ -315,33 +311,20 @@ export const apiService = {
 
     // Deep merge studentSubscriptions from all sources so every student's days are strictly preserved without interference
     const allStudentSubscriptions: Record<string, { days: number; startedAt: string; expiresAt: string; studentName?: string }> = {};
-    const fallbackSources = [
+    const subSources = [
       cachedAccess?.studentSubscriptions,
       firestoreAccess?.studentSubscriptions,
+      serverAccess?.studentSubscriptions,
     ];
-    for (const src of fallbackSources) {
+    for (const src of subSources) {
       if (src && typeof src === 'object') {
         for (const [em, sub] of Object.entries(src)) {
           if (em && sub && (sub as any).expiresAt) {
             const cleanEm = em.trim().toLowerCase();
             allStudentSubscriptions[cleanEm] = {
+              ...(allStudentSubscriptions[cleanEm] || {}),
               ...(sub as any),
             };
-          }
-        }
-      }
-    }
-    // Server is authoritative for current persistent database state
-    if (serverAccess?.studentSubscriptions && typeof serverAccess.studentSubscriptions === 'object') {
-      for (const [em, sub] of Object.entries(serverAccess.studentSubscriptions)) {
-        if (em) {
-          const cleanEm = em.trim().toLowerCase();
-          if (sub && (sub as any).expiresAt) {
-            allStudentSubscriptions[cleanEm] = {
-              ...(sub as any),
-            };
-          } else {
-            delete allStudentSubscriptions[cleanEm];
           }
         }
       }
@@ -1368,19 +1351,10 @@ export const apiService = {
       ...(serverStudent?.progress?.completedQuizAttempts || []),
     ].filter((att, index, self) => index === self.findIndex((a) => a.id === att.id));
 
-    // Resolve subscription independently for this specific student
-    const subFromAccess = localCachedData?.settings?.access?.studentSubscriptions?.[cleanEmail];
-    const subDays = subFromAccess?.days ?? serverStudent?.subscriptionDays ?? firestoreStudent?.subscriptionDays ?? baseStudent?.subscriptionDays;
-    const subStartedAt = subFromAccess?.startedAt ?? serverStudent?.subscriptionStartedAt ?? firestoreStudent?.subscriptionStartedAt ?? baseStudent?.subscriptionStartedAt;
-    const subExpiresAt = subFromAccess?.expiresAt ?? serverStudent?.subscriptionExpiresAt ?? firestoreStudent?.subscriptionExpiresAt ?? baseStudent?.subscriptionExpiresAt;
-
     const finalStudent: StudentUser = {
       ...baseStudent,
       ...(serverStudent || {}),
       ...(firestoreStudent || {}),
-      subscriptionDays: subDays,
-      subscriptionStartedAt: subStartedAt,
-      subscriptionExpiresAt: subExpiresAt,
       progress: {
         completedVideoIds: mergedVideos,
         completedQuizAttempts: mergedAttempts,
