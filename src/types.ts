@@ -1,6 +1,7 @@
 export interface Question {
   id: string;
   questionText: string;
+  quizId?: string;
   imageUrl?: string;
   imageData?: string; // Permanent embedded compressed data URL (never expires or 404s)
   diskUrl?: string; // Optional local disk mirror

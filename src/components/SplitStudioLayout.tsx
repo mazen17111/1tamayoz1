@@ -103,24 +103,25 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
     });
   };
 
-  // Currently playing video ID inside the right-hand studio player
+  // Currently playing video ID inside the right-hand studio player (Starts NULL, never auto-opens)
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
-  // When resource changes or first renders, automatically select the first video
+  // When section changes, reset resource to the section's first resource and reset video
   useEffect(() => {
-    if (resourceVideos.length > 0) {
-      const exists = resourceVideos.some((v) => v.id === selectedVideoId);
-      if (!exists) {
-        setSelectedVideoId(resourceVideos[0].id);
-      }
-    } else {
-      setSelectedVideoId(null);
-    }
-  }, [selectedResourceId, resourceVideos]);
+    const firstRes = sectionResources[0]?.id || '';
+    setSelectedResourceId(firstRes);
+    setSelectedVideoId(null);
+  }, [activeSectionId]);
 
-  const displayedVideo = 
-    (selectedVideoId && resourceVideos.find((v) => v.id === selectedVideoId)) ||
-    (resourceVideos.length > 0 ? resourceVideos[0] : null);
+  // When resource changes, reset selected video so it does not open automatically
+  useEffect(() => {
+    setSelectedVideoId(null);
+  }, [selectedResourceId]);
+
+  // The displayed video is ONLY the video the student explicitly clicked on
+  const displayedVideo = selectedVideoId
+    ? resourceVideos.find((v) => v.id === selectedVideoId) || null
+    : null;
 
   const isVideoCompleted = displayedVideo
     ? currentUser?.progress?.completedVideoIds?.includes(displayedVideo.id)
@@ -173,16 +174,16 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
     }
   };
 
-  // Format embed URL for smooth playback
+  // Format embed URL for smooth playback (no autoplay on navigation)
   const getEmbedUrl = (url: string) => {
     if (!url) return '';
     if (url.includes('youtube.com/watch?v=')) {
       const vid = url.split('v=')[1]?.split('&')[0];
-      return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0`;
+      return `https://www.youtube-nocookie.com/embed/${vid}?rel=0`;
     }
     if (url.includes('youtu.be/')) {
       const vid = url.split('youtu.be/')[1]?.split('?')[0];
-      return `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0`;
+      return `https://www.youtube-nocookie.com/embed/${vid}?rel=0`;
     }
     return url;
   };
@@ -646,7 +647,6 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
                 controls
                 preload="metadata"
                 playsInline
-                autoPlay
                 controlsList="nodownload"
                 onContextMenu={(e) => e.preventDefault()}
                 className="w-full h-full object-contain"
@@ -655,9 +655,28 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
               </video>
             )
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-3">
-              <Film className="w-12 h-12 stroke-[1.5]" />
-              <p className="text-sm font-semibold">لم يتم تحديد فيديو في هذا القسم حتى الآن</p>
+            <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-slate-400 gap-3.5 bg-gradient-to-b from-slate-900 via-slate-920 to-slate-950">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+                <Play className="w-8 h-8 fill-emerald-500/20 text-emerald-400 mr-0.5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-base font-extrabold text-white">اختر درساً من القائمة لبدء المشاهدة</p>
+                <p className="text-xs text-slate-400 max-w-sm">
+                  {resourceVideos.length > 0
+                    ? `يتوفر ${resourceVideos.length} شروحات في هذا المصدر. اضغط على أي شرح في الأسفل لبدء تشغيله.`
+                    : 'لا توجد شروحات مسجلة في هذا المصدر حالياً.'}
+                </p>
+              </div>
+              {resourceVideos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectVideo(resourceVideos[0])}
+                  className="mt-1 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>بدء الشرح الأول ({resourceVideos[0].title})</span>
+                </button>
+              )}
             </div>
           )}
         </div>

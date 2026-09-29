@@ -50,8 +50,24 @@ let localCachedData: PlatformData | null = null;
 export const apiService = {
   // Access in-memory and local storage cache instantly without any network waterfall (0ms instant display)
   getCachedPlatformData(): PlatformData {
+    const sanitize = (data: PlatformData): PlatformData => {
+      const deletedSet = new Set(data.deletedIds || []);
+      deletedSet.add('sec-1');
+      return {
+        ...data,
+        sections: (data.sections || []).filter(s => s && s.id && !deletedSet.has(s.id)),
+        resources: (data.resources || []).filter(r => r && r.id && !deletedSet.has(r.id)),
+        videos: (data.videos || []).filter(v => v && v.id && !deletedSet.has(v.id)),
+        files: (data.files || []).filter(f => f && f.id && !deletedSet.has(f.id)),
+        quizzes: (data.quizzes || []).filter(q => q && q.id && !deletedSet.has(q.id)),
+      };
+    };
+
     if (localCachedData && Array.isArray(localCachedData.sections) && localCachedData.sections.length > 0) {
-      return localCachedData;
+      const clean = sanitize(localCachedData);
+      if (clean.sections.length > 0) {
+        return clean;
+      }
     }
     if (typeof window !== 'undefined') {
       try {
@@ -59,8 +75,11 @@ export const apiService = {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
-            localCachedData = parsed;
-            return parsed;
+            const clean = sanitize(parsed);
+            if (clean.sections.length > 0) {
+              localCachedData = clean;
+              return clean;
+            }
           }
         }
       } catch (e) {
@@ -214,8 +233,24 @@ export const apiService = {
     const firestoreDeleted = Array.isArray(firestoreData?.deletedIds) ? firestoreData.deletedIds : [];
     const serverDeleted = Array.isArray(serverData?.deletedIds) ? serverData.deletedIds : [];
     const cachedDeleted = Array.isArray(localCachedData?.deletedIds) ? localCachedData.deletedIds : [];
-    // Permanent deletion list for old videos requested by user
-    const explicitOldDeletions = ['vid-1788842498895', 'vid-1788842825351', 'vid-1788685980533'];
+    // Permanent deletion list for old deleted items so they never return
+    const explicitOldDeletions = [
+      'sec-1',
+      'vid-1788842498895',
+      'vid-1788842825351',
+      'vid-1788685980533',
+      'vid-1788687482632',
+      'vid-1',
+      'vid-1788687506172',
+      'vid-1788850209833',
+      'res-1788645931006',
+      'file-1788646035246',
+      'file-1788686146883',
+      'quiz-1788686005901',
+      'quiz-1790410653641',
+      'quiz-1790410956257',
+      'vid-1790502061123'
+    ];
     const allDeletedIds = Array.from(new Set([...firestoreDeleted, ...serverDeleted, ...cachedDeleted, ...explicitOldDeletions]));
     const deletedSet = new Set(allDeletedIds);
 

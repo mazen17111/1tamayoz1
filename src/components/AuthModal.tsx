@@ -1,13 +1,44 @@
-import React, { useState } from 'react';
-import { X, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  Mail, 
+  Lock, 
+  User, 
+  UserPlus, 
+  LogIn, 
+  AlertCircle, 
+  Sparkles, 
+  ShieldCheck, 
+  Eye, 
+  EyeOff, 
+  GraduationCap, 
+  CheckCircle2, 
+  KeyRound, 
+  ArrowLeft 
+} from 'lucide-react';
 import { StudentUser } from '../types';
 import { apiService } from '../services/api';
+import { safeStorage } from '../utils/safeStorage';
 
 interface AuthModalProps {
   onClose: () => void;
   onSuccess: (user: StudentUser) => void;
   promptMessage?: string | null;
   initialMode?: 'login' | 'register';
+  onOpenAdmin?: () => void;
+}
+
+// Crisp official WhatsApp vector icon
+function WhatsAppIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg 
+      className={className} 
+      viewBox="0 0 24 24" 
+      fill="currentColor"
+    >
+      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-5.805 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+    </svg>
+  );
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -15,13 +46,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSuccess,
   promptMessage,
   initialMode = 'login',
+  onOpenAdmin,
 }) => {
   const [tab, setTab] = useState<'login' | 'register'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Keyboard accessibility: ESC key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  // Load remembered student email if available
+  useEffect(() => {
+    try {
+      const savedEmail = safeStorage.getItem('tamayuz_remembered_student_email');
+      if (savedEmail && !email) {
+        setEmail(savedEmail);
+      }
+    } catch {}
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,149 +85,334 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       if (tab === 'login') {
-        const user = await apiService.login(email, password);
+        if (!email.trim() || !password) {
+          setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
+          setIsLoading(false);
+          return;
+        }
+
+        const user = await apiService.login(email.trim(), password);
+
+        // Save or clear remember me preference
+        try {
+          if (rememberMe) {
+            safeStorage.setItem('tamayuz_remembered_student_email', email.trim());
+          } else {
+            safeStorage.removeItem('tamayuz_remembered_student_email');
+          }
+        } catch {}
+
         onSuccess(user);
         onClose();
       } else {
         if (!name.trim()) {
-          setError('يرجى إدخال اسم الطالب');
+          setError('يرجى إدخال اسم الطالب الكامل (ثنائي أو ثلاثي)');
           setIsLoading(false);
           return;
         }
-        const user = await apiService.register(name, email, password);
+        if (!email.trim() || !email.includes('@')) {
+          setError('يرجى إدخال بريد إلكتروني صحيح');
+          setIsLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setError('كلمة المرور يجب أن لا تقل عن 6 خانات أو أحرف');
+          setIsLoading(false);
+          return;
+        }
+
+        const user = await apiService.register(name.trim(), email.trim(), password);
+        
+        try {
+          if (rememberMe) {
+            safeStorage.setItem('tamayuz_remembered_student_email', email.trim());
+          }
+        } catch {}
+
         onSuccess(user);
         onClose();
       }
     } catch (err: any) {
-      setError(err.message || 'حدث خطأ أثناء المحاولة، يرجى التحقق من البيانات.');
+      setError(err.message || 'حدث خطأ أثناء المحاولة، يرجى التحقق من صحة البيانات والمحاولة مجدداً.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const whatsappSupportUrl = `https://wa.me/?text=${encodeURIComponent(
+    tab === 'login'
+      ? 'السلام عليكم، أحتاج مساعدة في استعادة بيانات تسجيل الدخول إلى منصة التميز التعليمية.'
+      : 'السلام عليكم، أود تفعيل حسابي في منصة التميز التعليمية.'
+  )}`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full overflow-hidden text-right transition-colors">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850/80">
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-750 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      {/* Outer ambient glow */}
+      <div className="relative w-full max-w-lg my-auto">
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="text-right">
-            <span className="text-xs text-slate-400 dark:text-slate-500 block">بوابة الطلاب</span>
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">
-              {tab === 'login' ? 'تسجيل الدخول للمنصة' : 'إنشاء حساب طالب جديد'}
-            </h2>
-          </div>
-        </div>
+        {/* Modal Card */}
+        <div className="relative bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.8),0_0_50px_rgba(5,150,105,0.15)] border border-emerald-500/25 overflow-hidden text-right transition-all">
+          
+          {/* Top Decorative Header Sheen */}
+          <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600" />
 
-        <div className="p-6 space-y-5">
-          {/* Prompt banner when gated by video or quiz */}
-          {promptMessage && (
-            <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5 leading-relaxed">
-              <Lock className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+          {/* Header Bar */}
+          <div className="relative p-6 sm:p-7 pb-4 border-b border-slate-800/80 bg-slate-950/40">
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              aria-label="إغلاق"
+              className="absolute top-5 left-5 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group"
+            >
+              <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+            </button>
+
+            {/* Emblem & Title */}
+            <div className="flex items-center gap-3.5 pr-1">
+              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-0.5 shadow-lg shadow-emerald-600/30 shrink-0">
+                <div className="w-full h-full bg-slate-950/70 rounded-[14px] flex items-center justify-center text-emerald-400">
+                  <GraduationCap className="w-6 h-6 stroke-[2.2]" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-slate-950 shadow-xs">
+                  <Sparkles className="w-2.5 h-2.5 fill-current" />
+                </div>
+              </div>
+
               <div>
-                <span className="font-bold block mb-0.5">تسجيل الدخول مطلوب:</span>
-                <span>{promptMessage}</span>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                    منصة التميز التعليمية
+                  </h2>
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    بوابة الطلاب
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-medium">
+                  {tab === 'login' 
+                    ? 'تسجيل الدخول الآمن للوصول إلى كافة الدروس والاختبارات' 
+                    : 'إنشاء حساب طالب جديد والبدء في رحلة التميز الأكاديمي'}
+                </p>
               </div>
             </div>
-          )}
-
-          {/* Tab Switcher */}
-          <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-            <button
-              onClick={() => { setTab('login'); setError(null); }}
-              className={`py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
-                tab === 'login' 
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' 
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              تسجيل الدخول
-            </button>
-            <button
-              onClick={() => { setTab('register'); setError(null); }}
-              className={`py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
-                tab === 'register' 
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' 
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              حساب طالب جديد
-            </button>
           </div>
 
-          {/* Error message */}
-          {error && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {tab === 'register' && (
-              <div className="space-y-1 text-right">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">اسم الطالب الكامل</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="مثال: عبد الله الشمري"
-                    className="w-full pr-10 pl-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-600 text-right transition-colors"
-                  />
-                  <User className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+          <div className="p-6 sm:p-7 space-y-6">
+            
+            {/* Prompt Banner if user was blocked by a video or quiz */}
+            {promptMessage && (
+              <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-teal-950/60 border border-emerald-500/40 text-xs text-emerald-200 flex items-start gap-3 shadow-inner">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div className="leading-relaxed">
+                  <span className="font-extrabold text-emerald-300 block mb-1 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    المحتوى محمي للطلاب المعتمدين:
+                  </span>
+                  <span className="text-emerald-100/90">{promptMessage}</span>
                 </div>
               </div>
             )}
 
-            <div className="space-y-1 text-right">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">البريد الإلكتروني</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@example.com"
-                  className="w-full pr-10 pl-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-600 text-right transition-colors"
-                />
-                <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            {/* Luxury Segmented Tabs */}
+            <div className="relative p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80 grid grid-cols-2 shadow-inner">
+              <button
+                type="button"
+                onClick={() => { setTab('login'); setError(null); }}
+                className={`flex items-center justify-center gap-2 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all cursor-pointer ${
+                  tab === 'login'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-700/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                }`}
+              >
+                <LogIn className="w-4 h-4" />
+                <span>تسجيل الدخول</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTab('register'); setError(null); }}
+                className={`flex items-center justify-center gap-2 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all cursor-pointer ${
+                  tab === 'register'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-700/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>حساب طالب جديد</span>
+              </button>
+            </div>
+
+            {/* Error Banner */}
+            {error && (
+              <div className="p-3.5 bg-rose-950/40 border border-rose-500/40 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{error}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              
+              {/* Full Name (Registration only) */}
+              {tab === 'register' && (
+                <div className="space-y-1.5 text-right animate-in fade-in duration-200">
+                  <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span>اسم الطالب الكامل</span>
+                    <span className="text-[10px] text-slate-400 font-normal">سيظهر في نتائجك وشهاداتك</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="مثال: عبد الله أحمد الشمري"
+                      className="w-full pr-11 pl-4 py-3 bg-slate-950/70 border border-slate-700/70 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-right transition-all shadow-inner"
+                    />
+                    <User className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+              )}
+
+              {/* Email Address */}
+              <div className="space-y-1.5 text-right">
+                <label className="text-xs font-bold text-slate-300 block">
+                  البريد الإلكتروني
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    dir="ltr"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@example.com"
+                    className="w-full pr-11 pl-4 py-3 bg-slate-950/70 border border-slate-700/70 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-left transition-all shadow-inner"
+                  />
+                  <Mail className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1.5 text-right">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300">
+                    كلمة المرور
+                  </label>
+                  {tab === 'login' && (
+                    <a
+                      href={whatsappSupportUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors"
+                    >
+                      نسيت كلمة المرور؟
+                    </a>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    dir="ltr"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pr-11 pl-11 py-3 bg-slate-950/70 border border-slate-700/70 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-left transition-all shadow-inner"
+                  />
+                  <Lock className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                  
+                  {/* Toggle Show/Hide Password */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1 rounded-lg transition-colors cursor-pointer"
+                    title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {tab === 'register' && (
+                  <p className="text-[11px] text-slate-400">
+                    يجب أن تتكون كلمة المرور من 6 أحرف أو أرقام على الأقل.
+                  </p>
+                )}
+              </div>
+
+              {/* Remember Me Checkbox */}
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded-md border-slate-700 bg-slate-900 text-emerald-600 focus:ring-emerald-500/20 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-300">تذكر بياناتي على هذا الجهاز</span>
+                </label>
+              </div>
+
+              {/* Luxury Submit CTA Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 text-white font-black text-sm shadow-xl shadow-emerald-600/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 group"
+              >
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>جاري التحقق وتأمين تسجيل الدخول...</span>
+                  </div>
+                ) : (
+                  <>
+                    <span>{tab === 'login' ? 'دخول المنصة التعليمية' : 'إنشاء الحساب وبدء التعلم الآن'}</span>
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* VIP Trust Badges */}
+            <div className="pt-4 border-t border-slate-800/70 grid grid-cols-3 gap-2 text-center text-[10px] text-slate-400">
+              <div className="flex flex-col items-center gap-1">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>حماية وتشفير 256-bit</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <CheckCircle2 className="w-4 h-4 text-teal-400" />
+                <span>حفظ تقدمك التلقائي</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Sparkles className="w-4 h-4 text-emerald-300" />
+                <span>اختبارات وفيديوهات حصرية</span>
               </div>
             </div>
 
-            <div className="space-y-1 text-right">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">كلمة المرور</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pr-10 pl-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-600 text-right transition-colors"
-                />
-                <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-              </div>
+            {/* Quick WhatsApp Support */}
+            <div className="flex items-center justify-center pt-1 text-xs text-slate-400">
+              <a
+                href={whatsappSupportUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                <WhatsAppIcon className="w-4 h-4 text-emerald-400" />
+                <span>مساعدة الدعم الأكاديمي عبر واتساب</span>
+              </a>
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-700/20 transition-all cursor-pointer disabled:opacity-60"
-            >
-              {isLoading ? 'جاري التحقق...' : tab === 'login' ? 'دخول للمنصة' : 'إنشاء حساب وبدء التعلم'}
-            </button>
-          </form>
-
+          </div>
         </div>
       </div>
     </div>

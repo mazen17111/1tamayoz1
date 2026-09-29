@@ -219,6 +219,10 @@ export default function App() {
     } catch (err) {
       console.warn('Error loading platform data:', err);
     } finally {
+      const activeStudent = apiService.getCurrentStudent();
+      if (activeStudent) {
+        setCurrentUser(activeStudent);
+      }
       setIsLoading(false);
     }
   };
@@ -373,6 +377,7 @@ export default function App() {
   // Handlers
   const handleSelectSection = (sectionId: string) => {
     setSelectedSectionId(sectionId);
+    setActiveVideo(null);
     setIsAdminOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -743,6 +748,10 @@ export default function App() {
             setAuthModalInitialMode(mode || 'login');
             setIsAuthModalOpen(true);
           }}
+          onLoginSuccess={(user) => {
+            handleAuthSuccess(user);
+            showToast(`أهلاً بك يا ${user.name} في منصة التميز التعليمية`);
+          }}
           onLogout={handleLogout}
           onRefresh={loadData}
         />
@@ -957,6 +966,10 @@ export default function App() {
             onSuccess={(user) => {
               handleAuthSuccess(user);
               setAuthPromptMessage(null);
+            }}
+            onOpenAdmin={() => {
+              setIsAuthModalOpen(false);
+              handleOpenAdmin();
             }}
           />
         )}

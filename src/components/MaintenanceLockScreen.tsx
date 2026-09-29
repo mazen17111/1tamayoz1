@@ -11,9 +11,23 @@ import {
   Send,
   MessageCircle,
   HelpCircle,
-  ExternalLink
+  ExternalLink,
+  Mail,
+  User,
+  UserPlus,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  ArrowLeft,
+  ShieldCheck,
+  BookOpen,
+  Film,
+  FileText,
+  Award
 } from 'lucide-react';
 import { StudentUser, PlatformAccessConfig } from '../types';
+import { apiService } from '../services/api';
+import { safeStorage } from '../utils/safeStorage';
 
 interface MaintenanceLockScreenProps {
   accessConfig?: PlatformAccessConfig;
@@ -22,10 +36,10 @@ interface MaintenanceLockScreenProps {
   onLogout?: () => void;
   onOpenAdmin?: () => void;
   onOpenAuth?: (initialMode?: 'login' | 'register') => void;
+  onLoginSuccess?: (user: StudentUser) => void;
   isIndividuallyBlocked?: boolean;
   isGuestLocked?: boolean;
   isSubscriptionExpired?: boolean;
-  // Backward compatibility alias
   lockMessage?: string;
   onOpenAdminAuth?: () => void;
 }
@@ -63,6 +77,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   onLogout,
   onOpenAdmin,
   onOpenAuth,
+  onLoginSuccess,
   isIndividuallyBlocked,
   isGuestLocked,
   isSubscriptionExpired,
@@ -71,6 +86,22 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
 }) => {
   const [isChecking, setIsChecking] = useState(false);
   const handleAdmin = onOpenAdmin || onOpenAdminAuth;
+
+  // Direct guest portal login / register state
+  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState(() => {
+    try {
+      return safeStorage.getItem('tamayuz_remembered_student_email') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isSubscriptionMode = accessConfig?.lockReason === 'subscription';
   const isSubscriptionExpiredMode = Boolean(
@@ -82,7 +113,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   );
 
   const defaultLockMessage = isGuestLocked
-    ? 'مرحباً بك في منصة التميز التعليمية. جميع الشروحات المرئية، المذكرات، والملفات، والاختبارات التفاعلية محجوبة ومقفلة لغير المسجلين. يرجى تسجيل الدخول إلى حسابك أو إنشاء حساب جديد لفتح كافة أقسام ومصادر المنصة فوراً.'
+    ? 'مرحباً بك في منصة التميز التعليمية. يرجى تسجيل الدخول أو إنشاء حساب طالب جديد للوصول المباشر إلى الشروحات المرئية والاختبارات التفاعلية وحقائب المذكرات.'
     : isSubscriptionExpiredMode
     ? `عزيزي الطالب (${currentUser?.name || ''})، لقد انتهى اشتراكك في المنصة. يرجى التواصل مع المشرف لتجديد وتفعيل الاشتراك لمتابعة كافة الشروحات والاختبارات.`
     : isIndividuallyBlocked
@@ -95,6 +126,73 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
     setIsChecking(true);
     await onRefresh();
     setTimeout(() => setIsChecking(false), 600);
+  };
+
+  // Direct form submission for guest portal
+  const handleDirectAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsSubmitting(true);
+
+    try {
+      if (authTab === 'login') {
+        if (!email.trim() || !password) {
+          setAuthError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const user = await apiService.login(email.trim(), password);
+
+        try {
+          if (rememberMe) {
+            safeStorage.setItem('tamayuz_remembered_student_email', email.trim());
+          } else {
+            safeStorage.removeItem('tamayuz_remembered_student_email');
+          }
+        } catch {}
+
+        if (onLoginSuccess) {
+          onLoginSuccess(user);
+        } else {
+          await onRefresh();
+        }
+      } else {
+        if (!name.trim()) {
+          setAuthError('يرجى إدخال اسم الطالب الكامل (ثنائي أو ثلاثي)');
+          setIsSubmitting(false);
+          return;
+        }
+        if (!email.trim() || !email.includes('@')) {
+          setAuthError('يرجى إدخال بريد إلكتروني صحيح');
+          setIsSubmitting(false);
+          return;
+        }
+        if (password.length < 6) {
+          setAuthError('كلمة المرور يجب أن لا تقل عن 6 خانات أو أحرف');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const user = await apiService.register(name.trim(), email.trim(), password);
+
+        try {
+          if (rememberMe) {
+            safeStorage.setItem('tamayuz_remembered_student_email', email.trim());
+          }
+        } catch {}
+
+        if (onLoginSuccess) {
+          onLoginSuccess(user);
+        } else {
+          await onRefresh();
+        }
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'حدث خطأ أثناء المحاولة، يرجى التحقق من صحة البيانات والمحاولة مجدداً.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Build clean WhatsApp link
@@ -119,103 +217,330 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
 
   const buttonText = accessConfig?.subscriptionButtonText?.trim() || 'اشترك الآن أو فعّل اشتراكك عبر واتساب';
 
-  // Dedicated guest lockdown view
+  // ==========================================================================
+  // 1. DEDICATED ULTRA-LUXURIOUS STUDENT LOGIN & AUTHENTICATION PORTAL (GUESTS)
+  // ==========================================================================
   if (isGuestLocked && !currentUser) {
     return (
       <div 
-        id="platform-guest-lockdown-screen"
-        className="min-h-[85vh] bg-slate-950 text-white flex items-center justify-center p-4 selection:bg-emerald-500 selection:text-white"
+        id="platform-guest-login-portal"
+        className="min-h-[88vh] bg-slate-950 text-white flex items-center justify-center p-3.5 sm:p-6 lg:p-8 selection:bg-emerald-500 selection:text-white relative overflow-hidden"
+        dir="rtl"
       >
-        <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-9 shadow-2xl backdrop-blur-xl text-center relative overflow-hidden">
-          {/* Ambient Top Glow */}
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full blur-3xl pointer-events-none bg-emerald-600/20" />
+        {/* Multi-point Ambient Luxury Lights */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-teal-500/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-full max-w-2xl h-64 bg-emerald-600/10 rounded-full blur-[100px] pointer-events-none" />
 
-          {/* Top Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold border mb-5 shadow-xs bg-slate-800/80 border-slate-700">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-emerald-400">محتوى خاص بالطلاب المسجلين 🔒</span>
+        <div className="w-full max-w-5xl relative z-10 space-y-6">
+
+          {/* Top Brand Banner */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-500/30 bg-emerald-950/40 text-emerald-300 shadow-lg shadow-emerald-950/50 backdrop-blur-md">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>بوابة الطلاب المعتمدة • بيئة تدريبية ذكية</span>
+              <span className="text-emerald-500/70">|</span>
+              <span className="text-[11px] font-mono text-emerald-400">الإصدار 2026</span>
+            </div>
+
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-xl shadow-emerald-500/20">
+                <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-emerald-400">
+                  <GraduationCap className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.2]" />
+                </div>
+              </div>
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
+                منصة <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">التميز</span> التعليمية
+              </h1>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto leading-relaxed font-medium">
+              البيئة الأكاديمية الشاملة للتدريب على اختبارات القدرات العامة (الكمي واللفظي) بالشروحات المصورة والاختبارات التفاعلية.
+            </p>
           </div>
 
-          {/* Lock Icon */}
-          <div className="relative mx-auto mb-5 w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl">
-            <div className="w-full h-full rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shadow-emerald-500/10">
-              <Lock className="w-10 h-10 text-emerald-400" />
+          {/* Grand Central Split Card */}
+          <div className="bg-slate-900/90 border border-emerald-500/25 rounded-3xl sm:rounded-[32px] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.9),0_0_50px_rgba(16,185,129,0.12)] backdrop-blur-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 transition-all">
+            
+            {/* RIGHT SIDE: Interactive Direct Login / Register Form (7 Cols on desktop) */}
+            <div className="lg:col-span-7 p-6 sm:p-9 space-y-6 text-right border-b lg:border-b-0 lg:border-l border-slate-800/80">
+              
+              {/* Tab Switcher */}
+              <div className="relative p-1 bg-slate-950/80 rounded-2xl border border-slate-800 grid grid-cols-2 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab('login'); setAuthError(null); }}
+                  className={`flex items-center justify-center gap-2 py-3 text-xs sm:text-sm font-black rounded-xl transition-all cursor-pointer ${
+                    authTab === 'login'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-700/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>تسجيل الدخول</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab('register'); setAuthError(null); }}
+                  className={`flex items-center justify-center gap-2 py-3 text-xs sm:text-sm font-black rounded-xl transition-all cursor-pointer ${
+                    authTab === 'register'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-700/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>إنشاء حساب طالب جديد</span>
+                </button>
+              </div>
+
+              {/* Form Title & Subtitle */}
+              <div>
+                <h2 className="text-lg sm:text-xl font-black text-white">
+                  {authTab === 'login' ? 'الدخول إلى حساب الطالب' : 'إنشاء حساب طالب جديد'}
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                  {authTab === 'login' 
+                    ? 'أدخل بريدك الإلكتروني وكلمة المرور للوصول الفوري لكافة أقسام المنصة' 
+                    : 'سجل بياناتك الآن للبدء في حل الاختبارات ومشاهدة الشروحات المسجلة'}
+                </p>
+              </div>
+
+              {/* Error Message */}
+              {authError && (
+                <div className="p-3.5 bg-rose-950/40 border border-rose-500/40 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
+                  <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0 mt-1.5 animate-pulse" />
+                  <span className="leading-relaxed">{authError}</span>
+                </div>
+              )}
+
+              {/* The Form */}
+              <form onSubmit={handleDirectAuthSubmit} className="space-y-4">
+                
+                {/* Name Field (Register Mode) */}
+                {authTab === 'register' && (
+                  <div className="space-y-1.5 text-right animate-in fade-in duration-200">
+                    <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                      <span>اسم الطالب الكامل</span>
+                      <span className="text-[10px] text-slate-400 font-normal">سيظهر في الشهادات والتقارير</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="مثال: عبد الله بن أحمد الشمري"
+                        className="w-full pr-11 pl-4 py-3 bg-slate-950/80 border border-slate-750 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-right transition-all shadow-inner"
+                      />
+                      <User className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Email Field */}
+                <div className="space-y-1.5 text-right">
+                  <label className="text-xs font-bold text-slate-300 block">
+                    البريد الإلكتروني
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      dir="ltr"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="student@example.com"
+                      className="w-full pr-11 pl-4 py-3 bg-slate-950/80 border border-slate-750 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-left transition-all shadow-inner"
+                    />
+                    <Mail className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                {/* Password Field */}
+                <div className="space-y-1.5 text-right">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-300">
+                      كلمة المرور
+                    </label>
+                    {authTab === 'login' && cleanPhone && (
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors"
+                      >
+                        نسيت كلمة المرور؟
+                      </a>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      dir="ltr"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pr-11 pl-11 py-3 bg-slate-950/80 border border-slate-750 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-left transition-all shadow-inner"
+                    />
+                    <Lock className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                    
+                    {/* Toggle Show/Hide Password */}
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1 rounded-lg transition-colors cursor-pointer"
+                      title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {authTab === 'register' && (
+                    <p className="text-[11px] text-slate-400">
+                      يجب أن تتكون كلمة المرور من 6 خانات أو أحرف على الأقل.
+                    </p>
+                  )}
+                </div>
+
+                {/* Remember Me Option */}
+                <div className="flex items-center justify-between pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded-md border-slate-700 bg-slate-900 text-emerald-600 focus:ring-emerald-500/20 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <span className="text-xs text-slate-300">تذكر بيانات تسجيل دخولي في هذا المتصفح</span>
+                  </label>
+                </div>
+
+                {/* Submit Primary CTA */}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 text-white font-black text-sm sm:text-base shadow-xl shadow-emerald-600/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 group"
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>جاري التحقق وتأمين تسجيل الدخول...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span>{authTab === 'login' ? 'دخول المنصة التعليمية' : 'إنشاء الحساب وبدء التعلم الآن'}</span>
+                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1.5 transition-transform" />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* Bottom Quick Links */}
+              <div className="flex items-center justify-center pt-3 border-t border-slate-800 text-xs text-slate-400">
+                {cleanPhone && (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 transition-colors"
+                  >
+                    <WhatsAppIcon className="w-4 h-4 text-emerald-400" />
+                    <span>مساعدة الدعم الأكاديمي عبر واتساب</span>
+                  </a>
+                )}
+              </div>
+
             </div>
-            <span className="absolute -top-1 -right-1 flex h-4 w-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
-            </span>
+
+            {/* LEFT SIDE: Platform Capabilities & Academic Features Showcase (5 Cols on desktop) */}
+            <div className="lg:col-span-5 p-6 sm:p-9 bg-slate-950/60 flex flex-col justify-between space-y-6 text-right">
+              
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                  <Sparkles className="w-3.5 h-3.5 fill-current" />
+                  <span>مميزات حسابك في منصة التميز</span>
+                </div>
+
+                <h3 className="text-base sm:text-lg font-black text-white leading-tight">
+                  كل ما تحتاجه لتحقيق الدرجة المستهدفة في مكان واحد
+                </h3>
+
+                {/* 4 Feature Items */}
+                <div className="space-y-3 pt-1">
+                  
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3 shadow-xs">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <Film className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-white">شروحات مرئية تفاعلية</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        فيديوهات مسجلة للكمي واللفظي تشرح التكتيكات السريعة وأحدث الأسئلة.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3 shadow-xs">
+                    <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-white">اختبارات محاكية وتصحيح ذكي</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        محاكاة حقيقية لبيئة قياس مع توقيت واستخراج فوري للدرجة وتوضيح الإجابات.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3 shadow-xs">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-white">مذكرات وتجميعات PDF شاملة</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        حقائب منظمة وقابلة للمعاينة المباشرة والمذاكرة بمرونة على أي جهاز.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3 shadow-xs">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <Award className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-white">سجل الإنجاز والتقدم الشخصي</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        حفظ مستمر للفيديوهات المشاهدة ونتائج الاختبارات ومجلدات الأسئلة المفضلة.
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Trust Footnote */}
+              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>أمان وسرية تامة لبيانات الطالب</span>
+                </div>
+                <span>مزامنة سحابية مستمرة</span>
+              </div>
+
+            </div>
+
           </div>
 
-          {/* Title */}
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-3">
-            المحتوى التعليمي مقفل لغير المسجلين
-          </h1>
-
-          {/* Notice Box */}
-          <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 mb-6 text-sm sm:text-base text-slate-200 leading-relaxed font-medium text-right shadow-inner">
-            <p className="whitespace-pre-line">{defaultLockMessage}</p>
-          </div>
-
-          {/* Features Highlights */}
-          <div className="grid grid-cols-2 gap-2 mb-6 text-xs text-slate-300 text-right">
-            <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 flex items-center gap-2">
-              <span className="text-emerald-400">🎬</span>
-              <span>شروحات مسجلة للكمي واللفظي</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 flex items-center gap-2">
-              <span className="text-emerald-400">📝</span>
-              <span>اختبارات تفاعلية محاكية</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 flex items-center gap-2">
-              <span className="text-emerald-400">📂</span>
-              <span>تجميعات وملخصات PDF</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 flex items-center gap-2">
-              <span className="text-emerald-400">⭐</span>
-              <span>حفظ المصادر ومتابعة التقدم</span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="space-y-3 mb-6">
-            <button
-              type="button"
-              onClick={() => onOpenAuth?.('login')}
-              className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-black text-base shadow-lg shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01]"
-            >
-              <LogIn className="w-5 h-5" />
-              <span>تسجيل الدخول إلى حسابك لفتح المحتوى</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onOpenAuth?.('register')}
-              className="w-full py-3 px-6 rounded-2xl bg-slate-800 hover:bg-slate-750 text-emerald-300 font-bold text-sm border border-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              <span>إنشاء حساب طالب جديد مجاناً</span>
-            </button>
-          </div>
-
-          {/* Supervisor Contact if enabled */}
-          {cleanPhone && (
-            <div className="mb-4">
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-xs text-emerald-400 hover:text-emerald-300 underline font-medium"
-              >
-                <WhatsAppIcon className="w-4 h-4 text-emerald-400" />
-                <span>تواجه صعوبة أو استفسار؟ تواصل مع المشرف عبر واتساب</span>
-              </a>
-            </div>
-          )}
         </div>
       </div>
     );
   }
 
+  // ==========================================================================
+  // 2. SUBSCRIPTION EXPIRED / INDIVIDUALLY BLOCKED / MAINTENANCE LOCK VIEW
+  // ==========================================================================
   return (
     <div 
       id="platform-lockdown-screen"
@@ -319,79 +644,55 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
 
         {/* Main CTA Section: WhatsApp & Telegram */}
         <div className="space-y-3 mb-6">
-          {/* Subscription / Contact Channels */}
-          <div className="space-y-2.5">
-            {/* WhatsApp Contact Channel */}
+          {cleanPhone && (
             <a
-              id="lock-whatsapp-btn"
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-lg shadow-[#25D366]/20 transition-all cursor-pointer group"
+              className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-black text-sm sm:text-base shadow-lg shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01]"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                  <WhatsAppIcon className="w-5 h-5 text-white" />
-                </div>
-                <div className="text-right">
-                  <span className="block font-black text-sm sm:text-base">{buttonText || 'اشترك الآن عبر واتساب'}</span>
-                  <span className="text-[11px] text-emerald-100 font-normal">
-                    {accessConfig?.whatsappNumber ? `الرقم: ${accessConfig.whatsappNumber}` : 'تواصل مباشر مع المشرف لتفعيل حسابك فورياً'}
-                  </span>
-                </div>
-              </div>
-              <ExternalLink className="w-4 h-4 opacity-80 shrink-0" />
+              <WhatsAppIcon className="w-5 h-5" />
+              <span>{buttonText}</span>
             </a>
+          )}
 
-            {/* Telegram Contact Channel */}
-            {telegramUrl ? (
-              <a
-                id="lock-telegram-btn"
-                href={telegramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl bg-[#229ED9] hover:bg-[#1e8cc1] active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-lg shadow-[#229ED9]/20 transition-all cursor-pointer group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                    <TelegramIcon className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-right">
-                    <span className="block font-black text-sm sm:text-base">تواصل واشترك عبر تليجرام</span>
-                    <span className="text-[11px] text-sky-100 font-normal">
-                      {accessConfig?.telegramUsername ? `@${cleanTelegram}` : 'محادثة فورية مع المشرف عبر تطبيق تليجرام'}
-                    </span>
-                  </div>
-                </div>
-                <ExternalLink className="w-4 h-4 opacity-80 shrink-0" />
-              </a>
-            ) : null}
-          </div>
-
-          {/* Secondary Actions */}
-          <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
-            <button
-              id="lock-refresh-btn"
-              onClick={handleCheckAgain}
-              disabled={isChecking}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer disabled:opacity-50 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700"
+          {telegramUrl && (
+            <a
+              href={telegramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 px-6 rounded-2xl bg-[#229ED9] hover:bg-[#1e8ec3] text-white font-bold text-sm shadow-md shadow-[#229ED9]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <RotateCcw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
-              <span>{isChecking ? 'جاري الفحص...' : 'إعادة الفحص والتحديث'}</span>
-            </button>
-
-            {currentUser && onLogout && (
-              <button
-                id="lock-logout-btn"
-                onClick={onLogout}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-sm border border-slate-700 transition-all cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>تسجيل الخروج</span>
-              </button>
-            )}
-          </div>
+              <TelegramIcon className="w-4 h-4" />
+              <span>قناة المنصة على تليجرام</span>
+            </a>
+          )}
         </div>
+
+        {/* Bottom Actions: Check again, logout, admin */}
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-slate-800 text-xs">
+          <button
+            type="button"
+            onClick={handleCheckAgain}
+            disabled={isChecking}
+            className="px-4 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-750 text-slate-300 font-bold border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
+            <span>{isChecking ? 'جاري التحقق...' : 'إعادة التحقق من التفعيل'}</span>
+          </button>
+
+          {currentUser && onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="px-4 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 font-bold border border-rose-800/50 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>تسجيل الخروج من الحساب</span>
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   );

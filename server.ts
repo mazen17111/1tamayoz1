@@ -105,6 +105,7 @@ function loadPlatformData(): PlatformData {
         const data: PlatformData = JSON.parse(raw);
         const deletedIds = Array.isArray(data.deletedIds) ? data.deletedIds : [];
         const deletedSet = new Set(deletedIds);
+        deletedSet.add('sec-1');
         data.sections = (Array.isArray(data.sections) ? data.sections : []).filter(s => s && s.id && !deletedSet.has(s.id));
         data.resources = (Array.isArray(data.resources) ? data.resources : []).filter(r => r && r.id && !deletedSet.has(r.id));
         data.videos = (Array.isArray(data.videos) ? data.videos : []).filter(v => v && v.id && !deletedSet.has(v.id));
