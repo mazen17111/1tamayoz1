@@ -54,6 +54,8 @@ import { defaultPlatformSettings } from '../defaultData';
 import { AdminAppearanceTab } from './admin/AdminAppearanceTab';
 import { AdminAccessTab } from './admin/AdminAccessTab';
 import { AdminAnnouncementTab } from './admin/AdminAnnouncementTab';
+import { AdminTelegramWidgetTab } from './admin/AdminTelegramWidgetTab';
+import { TelegramPlaneIcon } from './TelegramWidget';
 
 interface AdminDashboardProps {
   platformData: PlatformData;
@@ -133,8 +135,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Active Admin Tab
   const [adminTab, setAdminTab] = useState<
-    'sections' | 'resources' | 'videos' | 'files' | 'quizzes' | 'analytics' | 'students' | 'livestream' | 'appearance' | 'access' | 'announcement'
+    'sections' | 'resources' | 'videos' | 'files' | 'quizzes' | 'analytics' | 'students' | 'livestream' | 'appearance' | 'access' | 'announcement' | 'telegram'
   >('sections');
+
+  // Telegram Widget Saving State
+  const [isSavingTelegram, setIsSavingTelegram] = useState(false);
 
   // Appearance / Theme State
   const [platformTheme, setPlatformTheme] = useState<PlatformThemeConfig>(() => {
@@ -1672,6 +1677,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </button>
 
+        {/* زر ميزة دائرة تليجرام */}
+        <button
+          id="admin-tab-telegram"
+          onClick={() => setAdminTab('telegram')}
+          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            adminTab === 'telegram'
+              ? 'bg-[#0088cc] text-white shadow-xs'
+              : platformData.settings?.telegramWidget?.isEnabled
+              ? 'bg-sky-50 dark:bg-sky-950/60 text-[#0088cc] dark:text-sky-300 border border-sky-300 dark:border-sky-800'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <TelegramPlaneIcon className="w-4 h-4" />
+          <span>دائرة تليجرام</span>
+          {platformData.settings?.telegramWidget?.isEnabled && (
+            <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              مفعلة
+            </span>
+          )}
+        </button>
+
         {/* زر البث المباشر في شريط التحكم */}
         <button
           id="admin-tab-livestream"
@@ -2626,6 +2652,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onDeleteStudent={handleDeleteStudent}
           onSetStudentSubscription={handleSetStudentSubscription}
           onRefreshStats={loadAdminStats}
+          onOpenTelegramTab={() => setAdminTab('telegram')}
           isSaving={isSavingAccess}
         />
       )}
@@ -2638,6 +2665,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           announcement={platformAnnouncement}
           onSaveAnnouncement={handleSaveAnnouncement}
           isSaving={isSavingAnnouncement}
+        />
+      )}
+
+      {/* ==================================================== */}
+      {/* 11. TELEGRAM CIRCLE WIDGET TAB */}
+      {/* ==================================================== */}
+      {adminTab === 'telegram' && (
+        <AdminTelegramWidgetTab
+          initialConfig={platformData.settings?.telegramWidget}
+          onSaveConfig={async (config) => {
+            setIsSavingTelegram(true);
+            try {
+              await apiService.saveTelegramWidgetConfig(config);
+              await onRefreshData();
+            } finally {
+              setIsSavingTelegram(false);
+            }
+          }}
+          isSaving={isSavingTelegram}
         />
       )}
 

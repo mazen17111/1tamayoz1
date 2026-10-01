@@ -1705,17 +1705,57 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
 
   // 7. Student Auth & Accounts
   app.post('/api/auth/login', (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, firestorePasswordHash, firestoreUserId, firestoreName } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبة' });
     }
+    const cleanEmail = email.trim().toLowerCase();
     usersData = loadUsers();
-    const user = usersData.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
+
+    // If student is in Firestore but not yet in local users.json, sync them
+    if (!user && firestorePasswordHash) {
+      if (verifyPassword(password, firestorePasswordHash)) {
+        const syncedUser = {
+          id: firestoreUserId || `usr-${Date.now()}`,
+          name: firestoreName || cleanEmail.split('@')[0],
+          email: cleanEmail,
+          role: 'student' as const,
+          passwordHash: firestorePasswordHash,
+          createdAt: new Date().toISOString(),
+          progress: {
+            completedVideoIds: [],
+            completedQuizAttempts: [],
+            bookmarkedResourceIds: [],
+          },
+        };
+        usersData.users.push(syncedUser);
+        saveUsers(usersData);
+        user = syncedUser;
+      } else {
+        return res.status(401).json({ error: 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب' });
+      }
     }
-    const { passwordHash, ...safeUser } = user;
-    res.json({ user: safeUser });
+
+    if (!user) {
+      return res.status(401).json({ error: 'هذا البريد الإلكتروني غير مسجل، يرجى إنشاء حساب طالب جديد' });
+    }
+
+    // If user has no passwordHash recorded yet (legacy account), record this password
+    if (!user.passwordHash) {
+      user.passwordHash = hashPassword(password);
+      saveUsers(usersData);
+      const { passwordHash: _, ...safeUser } = user;
+      return res.json({ user: safeUser, passwordHash: user.passwordHash });
+    }
+
+    // Verify password strictly
+    if (!verifyPassword(password, user.passwordHash)) {
+      return res.status(401).json({ error: 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب' });
+    }
+
+    const { passwordHash: _, ...safeUser } = user;
+    res.json({ user: safeUser, passwordHash: user.passwordHash });
   });
 
   app.post('/api/auth/register', (req, res) => {
@@ -1723,15 +1763,16 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'جميع الحقول مطلوبة للتسجيل' });
     }
+    const cleanEmail = email.trim().toLowerCase();
     usersData = loadUsers();
-    const existing = usersData.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+    const existing = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
     if (existing) {
-      return res.status(409).json({ error: 'هذا البريد الإلكتروني مسجل بالفعل' });
+      return res.status(409).json({ error: 'هذا البريد الإلكتروني مسجل بالفعل، يرجى تسجيل الدخول باستخدام كلمة المرور الخاصة بك' });
     }
     const newUser: StudentUser & { passwordHash: string } = {
       id: `usr-${Date.now()}`,
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       role: 'student',
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
@@ -1744,7 +1785,7 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     usersData.users.push(newUser);
     saveUsers(usersData);
     const { passwordHash, ...safeUser } = newUser;
-    res.json({ user: safeUser });
+    res.json({ user: safeUser, passwordHash });
   });
 
   // Student progress update (supports /api/student/progress and /api/user/progress)

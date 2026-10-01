@@ -28,6 +28,7 @@ import { PlatformAccessConfig, AdminStats } from '../../types';
 interface AdminAccessTabProps {
   accessConfig?: PlatformAccessConfig;
   adminStats: AdminStats | null;
+  onOpenTelegramTab?: () => void;
   onUpdateLock: (
     isLocked: boolean, 
     options?: {
@@ -83,6 +84,7 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
   onDeleteStudent,
   onSetStudentSubscription,
   onRefreshStats,
+  onOpenTelegramTab,
   isSaving,
 }) => {
   const isLocked = Boolean(accessConfig?.isLocked);
@@ -239,6 +241,34 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
   return (
     <div className="space-y-6 text-right" dir="rtl">
       
+      {/* Telegram Widget Quick Card in Control / Access Section */}
+      {onOpenTelegramTab && (
+        <div className="bg-gradient-to-r from-sky-950/50 via-slate-900 to-slate-900 p-5 rounded-3xl border border-sky-500/30 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-sky-500/20 text-[#229ED9] border border-sky-500/30 flex items-center justify-center shrink-0 shadow-xs">
+              <TelegramIcon className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-white">ميزة دائرة تليجرام وقنوات التدريب للطلاب 📢</h3>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                يمكنك إضافة روابط جروبات تليجرام، وتفعيل أو إيقاف ظهور الدائرة العائمة للطلاب مع مستطيل الانضمام المباشر.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenTelegramTab}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0088cc] to-[#24A1DE] hover:from-[#0077b3] hover:to-[#1e8ec3] text-white font-black text-xs shadow-md shadow-[#0088cc]/20 transition-all flex items-center gap-2 cursor-pointer shrink-0"
+          >
+            <Send className="w-4 h-4" />
+            <span>إدارة وتفعيل دائرة تليجرام والجروبات</span>
+          </button>
+        </div>
+      )}
+
       {/* Master Lockdown Hero Card */}
       <div className={`p-6 sm:p-7 rounded-3xl border transition-all shadow-sm ${
         isLocked

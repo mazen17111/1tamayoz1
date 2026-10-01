@@ -1320,36 +1320,42 @@ export const apiService = {
     const localSavedBookmarks = this.getLocalStudentBookmarks(cleanEmail);
     const localSavedFolders = this.getLocalQuestionFolders(cleanEmail);
 
-    let firestoreStudent: StudentUser | null = null;
+    let firestoreStudent: (StudentUser & { passwordHash?: string }) | null = null;
     let serverStudent: StudentUser | null = null;
 
-    // 1. Check in Firestore
+    // 1. Look up student in Firestore
     try {
-      firestoreStudent = await getStudentFromFirestore(cleanEmail);
+      firestoreStudent = (await getStudentFromFirestore(cleanEmail)) as any;
     } catch (e) {
       console.warn('Firestore student lookup warning:', e);
     }
 
-    // 2. Try server auth
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.user) {
-          serverStudent = data.user;
-        }
-      } else if (!firestoreStudent) {
-        const err = await res.json().catch(() => ({ error: 'بيانات الدخول غير صحيحة' }));
-        throw new Error(err.error || 'بيانات الدخول غير صحيحة');
-      }
-    } catch (e: any) {
-      if (!firestoreStudent) {
-        throw e;
-      }
+    // 2. Authenticate and strictly verify password via server
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: cleanEmail, 
+        password,
+        firestorePasswordHash: firestoreStudent?.passwordHash,
+        firestoreUserId: firestoreStudent?.id,
+        firestoreName: firestoreStudent?.name,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب' }));
+      throw new Error(err.error || 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب');
+    }
+
+    const data = await res.json();
+    if (data.user) {
+      serverStudent = data.user;
+    }
+
+    // If Firestore document didn't have passwordHash, sync it now
+    if (data.passwordHash && firestoreStudent && !firestoreStudent.passwordHash) {
+      saveStudentToFirestore({ ...firestoreStudent, passwordHash: data.passwordHash } as any).catch(() => {});
     }
 
     const baseStudent = firestoreStudent || serverStudent;
@@ -1424,56 +1430,43 @@ export const apiService = {
     const cleanEmail = email.trim().toLowerCase();
     const localSavedBookmarks = this.getLocalStudentBookmarks(cleanEmail);
 
-    const newUser: StudentUser = {
-      id: `student-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      name: name.trim(),
-      email: cleanEmail,
-      role: 'student',
-      createdAt: new Date().toISOString(),
+    // 1. Register on server first to securely hash password and check uniqueness
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), email: cleanEmail, password }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ error: 'حدث خطأ أثناء إنشاء الحساب' }));
+      throw new Error(errData.error || 'حدث خطأ أثناء إنشاء الحساب، يرجى المحاولة مجدداً');
+    }
+
+    const data = await res.json();
+    const serverUser: StudentUser = {
+      ...data.user,
       progress: {
-        completedVideoIds: [],
-        completedQuizAttempts: [],
-        bookmarkedResourceIds: localSavedBookmarks,
-      }
+        ...(data.user.progress || {}),
+        bookmarkedResourceIds: Array.from(new Set([
+          ...(data.user.progress?.bookmarkedResourceIds || []),
+          ...localSavedBookmarks,
+        ])),
+      },
     };
 
-    // 1. Save in Firestore permanently
+    // 2. Save in Firestore permanently with passwordHash
     try {
-      await saveStudentToFirestore(newUser);
+      await saveStudentToFirestore({
+        ...serverUser,
+        passwordHash: data.passwordHash,
+      } as any);
     } catch (e) {
       console.warn('Firestore save student warning:', e);
     }
 
-    // 2. Also register on server
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email: cleanEmail, password }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const serverUser: StudentUser = {
-          ...data.user,
-          progress: {
-            ...(data.user.progress || {}),
-            bookmarkedResourceIds: Array.from(new Set([
-              ...(data.user.progress?.bookmarkedResourceIds || []),
-              ...localSavedBookmarks,
-            ])),
-          },
-        };
-        this.saveCurrentStudent(serverUser);
-        this.saveLocalStudentBookmarks(cleanEmail, serverUser.progress.bookmarkedResourceIds);
-        return serverUser;
-      }
-    } catch (e) {
-      console.warn('Server registration warning:', e);
-    }
-
-    this.saveCurrentStudent(newUser);
-    this.saveLocalStudentBookmarks(cleanEmail, localSavedBookmarks);
-    return newUser;
+    this.saveCurrentStudent(serverUser);
+    this.saveLocalStudentBookmarks(cleanEmail, serverUser.progress.bookmarkedResourceIds);
+    return serverUser;
   },
 
   async recordProgress(params: {

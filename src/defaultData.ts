@@ -501,8 +501,36 @@ export const initialPlatformData: PlatformData = {
     }
   ],
   "settings": {
+    "theme": {
+      "primaryColor": "cyan-ocean",
+      "sectionsLayout": "grid",
+      "headerStyle": "glassmorphism",
+      "layoutPreset": "sidebar-split-right",
+      "borderRadius": "compact",
+      "id": "cyan-ocean",
+      "updatedAt": "2026-09-28T16:41:55.839Z",
+      "preset": "cyan-ocean",
+      "name": "الزمردي الأكاديمي الكلاسيكي",
+      "density": "compact",
+      "fontScale": "large",
+      "cardStyle": "bordered",
+      "customLayoutOrder": {
+        "desktop": [
+          "announcements",
+          "sections",
+          "resources",
+          "video_stage"
+        ],
+        "mobile": [
+          "announcements",
+          "sections",
+          "resources",
+          "video_stage"
+        ]
+      }
+    },
     "announcement": {
-      "updatedAt": "2026-09-25T15:13:16.356Z",
+      "updatedAt": "2026-09-28T16:41:55.839Z",
       "isDismissible": false,
       "linkUrl": "",
       "linkText": "",
@@ -518,7 +546,7 @@ export const initialPlatformData: PlatformData = {
       "blockedStudentEmails": [],
       "whatsappNumber": "",
       "lockReason": "maintenance",
-      "updatedAt": "2026-09-28T13:01:25.638Z",
+      "updatedAt": "2026-09-28T16:41:55.839Z",
       "studentSubscriptions": {
         "mktm22@gmail.com": {
           "startedAt": "2026-09-27T10:51:02.494Z",
@@ -550,36 +578,23 @@ export const initialPlatformData: PlatformData = {
       "isLocked": false,
       "subscriptionButtonText": "اشترك الآن أو فعّل اشتراكك عبر واتساب"
     },
-    "theme": {
-      "primaryColor": "cyan-ocean",
-      "sectionsLayout": "grid",
-      "headerStyle": "glassmorphism",
-      "layoutPreset": "sidebar-split-right",
-      "borderRadius": "compact",
-      "id": "cyan-ocean",
-      "updatedAt": "2026-09-27T09:47:29.091Z",
-      "preset": "cyan-ocean",
-      "name": "الزمردي الأكاديمي الكلاسيكي",
-      "density": "compact",
-      "fontScale": "large",
-      "cardStyle": "bordered",
-      "customLayoutOrder": {
-        "desktop": [
-          "announcements",
-          "sections",
-          "resources",
-          "video_stage"
-        ],
-        "mobile": [
-          "announcements",
-          "sections",
-          "resources",
-          "video_stage"
-        ]
-      }
+    "telegramWidget": {
+      "isEnabled": true,
+      "buttonLabel": "تليجرام",
+      "title": "قنوات ومجموعات تليجرام 📢",
+      "description": "انضم إلى مجموعات وقنوات التليجرام الرسمية لمتابعة التدريبات والنقاشات.",
+      "groups": [
+        {
+          "id": "tg-1",
+          "title": "جروب مناقشات القدرات",
+          "link": "https://t.me/tamayuz_group",
+          "description": "حل التجميعات اليومية والتسريبات"
+        }
+      ],
+      "updatedAt": "2026-09-28T16:41:55.839Z"
     }
   },
-  "updatedAt": "2026-09-28T13:01:38.002Z",
+  "updatedAt": "2026-09-28T16:41:55.839Z",
   "quizzes": [
     {
       "createdAt": "2026-09-10T18:04:30.164Z",
@@ -1032,8 +1047,36 @@ export const initialPlatformData: PlatformData = {
 };
 
 export const defaultPlatformSettings: PlatformSettings = {
+  "theme": {
+    "primaryColor": "cyan-ocean",
+    "sectionsLayout": "grid",
+    "headerStyle": "glassmorphism",
+    "layoutPreset": "sidebar-split-right",
+    "borderRadius": "compact",
+    "id": "cyan-ocean",
+    "updatedAt": "2026-09-28T16:41:55.839Z",
+    "preset": "cyan-ocean",
+    "name": "الزمردي الأكاديمي الكلاسيكي",
+    "density": "compact",
+    "fontScale": "large",
+    "cardStyle": "bordered",
+    "customLayoutOrder": {
+      "desktop": [
+        "announcements",
+        "sections",
+        "resources",
+        "video_stage"
+      ],
+      "mobile": [
+        "announcements",
+        "sections",
+        "resources",
+        "video_stage"
+      ]
+    }
+  },
   "announcement": {
-    "updatedAt": "2026-09-25T15:13:16.356Z",
+    "updatedAt": "2026-09-28T16:41:55.839Z",
     "isDismissible": false,
     "linkUrl": "",
     "linkText": "",
@@ -1049,7 +1092,7 @@ export const defaultPlatformSettings: PlatformSettings = {
     "blockedStudentEmails": [],
     "whatsappNumber": "",
     "lockReason": "maintenance",
-    "updatedAt": "2026-09-28T13:01:25.638Z",
+    "updatedAt": "2026-09-28T16:41:55.839Z",
     "studentSubscriptions": {
       "mktm22@gmail.com": {
         "startedAt": "2026-09-27T10:51:02.494Z",
@@ -1081,32 +1124,19 @@ export const defaultPlatformSettings: PlatformSettings = {
     "isLocked": false,
     "subscriptionButtonText": "اشترك الآن أو فعّل اشتراكك عبر واتساب"
   },
-  "theme": {
-    "primaryColor": "cyan-ocean",
-    "sectionsLayout": "grid",
-    "headerStyle": "glassmorphism",
-    "layoutPreset": "sidebar-split-right",
-    "borderRadius": "compact",
-    "id": "cyan-ocean",
-    "updatedAt": "2026-09-27T09:47:29.091Z",
-    "preset": "cyan-ocean",
-    "name": "الزمردي الأكاديمي الكلاسيكي",
-    "density": "compact",
-    "fontScale": "large",
-    "cardStyle": "bordered",
-    "customLayoutOrder": {
-      "desktop": [
-        "announcements",
-        "sections",
-        "resources",
-        "video_stage"
-      ],
-      "mobile": [
-        "announcements",
-        "sections",
-        "resources",
-        "video_stage"
-      ]
-    }
+  "telegramWidget": {
+    "isEnabled": true,
+    "buttonLabel": "تليجرام",
+    "title": "قنوات ومجموعات تليجرام 📢",
+    "description": "انضم إلى مجموعات وقنوات التليجرام الرسمية لمتابعة التدريبات والنقاشات.",
+    "groups": [
+      {
+        "id": "tg-1",
+        "title": "جروب مناقشات القدرات",
+        "link": "https://t.me/tamayuz_group",
+        "description": "حل التجميعات اليومية والتسريبات"
+      }
+    ],
+    "updatedAt": "2026-09-28T16:41:55.839Z"
   }
 };

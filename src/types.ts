@@ -230,10 +230,28 @@ export interface PlatformAccessConfig {
   updatedAt?: string;
 }
 
+export interface TelegramGroupItem {
+  id: string;
+  title: string;
+  link: string;
+  description?: string;
+  iconUrl?: string;
+}
+
+export interface TelegramWidgetConfig {
+  isEnabled: boolean;
+  buttonLabel?: string;
+  title?: string;
+  description?: string;
+  groups: TelegramGroupItem[];
+  updatedAt?: string;
+}
+
 export interface PlatformSettings {
   theme: PlatformThemeConfig;
   announcement: PlatformAnnouncement;
   access: PlatformAccessConfig;
+  telegramWidget?: TelegramWidgetConfig;
 }
 
 export interface PlatformData {
