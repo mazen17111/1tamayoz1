@@ -37,6 +37,7 @@ export interface VideoItem {
   url?: string;
   durationMinutes: number;
   linkedQuizId?: string;
+  linkedFileId?: string; // معرف الملف أو المذكرة المرفقة بهذا الفيديو
   order: number;
   createdAt: string;
 }

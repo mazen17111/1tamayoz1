@@ -1377,7 +1377,7 @@ startxref
   // 4. Videos CRUD
   app.post('/api/videos', (req, res) => {
     platformData = loadPlatformData();
-    const { resourceId, sectionId, title, description, videoUrl, durationMinutes, linkedQuizId, order } = req.body;
+    const { resourceId, sectionId, title, description, videoUrl, durationMinutes, linkedQuizId, linkedFileId, order } = req.body;
     
     if (!videoUrl || !videoUrl.trim()) {
       return res.status(400).json({ error: 'رابط أو ملف الفيديو مطلوب' });
@@ -1421,6 +1421,7 @@ startxref
       videoUrl: videoUrl.trim(),
       durationMinutes: Number(durationMinutes) || 10,
       linkedQuizId: linkedQuizId || undefined,
+      linkedFileId: linkedFileId || undefined,
       order: order !== undefined ? Number(order) : (platformData.videos.filter((v) => v.resourceId === finalResourceId).length + 1),
       createdAt: req.body.createdAt || new Date().toISOString(),
     };
@@ -1449,7 +1450,7 @@ startxref
     if (index === -1) {
       return res.status(404).json({ error: 'الفيديو غير موجود' });
     }
-    const { title, description, videoUrl, durationMinutes, linkedQuizId, resourceId, sectionId, order } = req.body;
+    const { title, description, videoUrl, durationMinutes, linkedQuizId, linkedFileId, resourceId, sectionId, order } = req.body;
     platformData.videos[index] = {
       ...platformData.videos[index],
       title: title && title.trim() ? title.trim() : platformData.videos[index].title,
@@ -1457,6 +1458,7 @@ startxref
       videoUrl: videoUrl && videoUrl.trim() ? videoUrl.trim() : platformData.videos[index].videoUrl,
       durationMinutes: durationMinutes !== undefined ? Number(durationMinutes) : platformData.videos[index].durationMinutes,
       linkedQuizId: linkedQuizId !== undefined ? (linkedQuizId || undefined) : platformData.videos[index].linkedQuizId,
+      linkedFileId: linkedFileId !== undefined ? (linkedFileId || undefined) : platformData.videos[index].linkedFileId,
       resourceId: resourceId || platformData.videos[index].resourceId,
       sectionId: sectionId || platformData.videos[index].sectionId,
       order: order !== undefined ? Number(order) : platformData.videos[index].order,

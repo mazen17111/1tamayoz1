@@ -54,8 +54,6 @@ import { defaultPlatformSettings } from '../defaultData';
 import { AdminAppearanceTab } from './admin/AdminAppearanceTab';
 import { AdminAccessTab } from './admin/AdminAccessTab';
 import { AdminAnnouncementTab } from './admin/AdminAnnouncementTab';
-import { AdminTelegramWidgetTab } from './admin/AdminTelegramWidgetTab';
-import { TelegramPlaneIcon } from './TelegramWidget';
 
 interface AdminDashboardProps {
   platformData: PlatformData;
@@ -135,11 +133,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Active Admin Tab
   const [adminTab, setAdminTab] = useState<
-    'sections' | 'resources' | 'videos' | 'files' | 'quizzes' | 'analytics' | 'students' | 'livestream' | 'appearance' | 'access' | 'announcement' | 'telegram'
+    'sections' | 'resources' | 'videos' | 'files' | 'quizzes' | 'analytics' | 'students' | 'livestream' | 'appearance' | 'access' | 'announcement'
   >('sections');
-
-  // Telegram Widget Saving State
-  const [isSavingTelegram, setIsSavingTelegram] = useState(false);
 
   // Appearance / Theme State
   const [platformTheme, setPlatformTheme] = useState<PlatformThemeConfig>(() => {
@@ -701,6 +696,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [vidDuration, setVidDuration] = useState<number>(15);
   const [vidOrder, setVidOrder] = useState<number>(1);
   const [vidLinkedQuizId, setVidLinkedQuizId] = useState<string>('');
+  const [vidLinkedFileId, setVidLinkedFileId] = useState<string>('');
   const [vidSourceMode, setVidSourceMode] = useState<'upload' | 'url'>('upload');
   const [isUploadingVid, setIsUploadingVid] = useState(false);
   const [vidUploadProgress, setVidUploadProgress] = useState<number | null>(null);
@@ -718,6 +714,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setVidDuration(video.durationMinutes);
       setVidOrder(video.order || 1);
       setVidLinkedQuizId(video.linkedQuizId || '');
+      setVidLinkedFileId(video.linkedFileId || '');
       setVidSourceMode(video.videoUrl.startsWith('/uploads/') ? 'upload' : 'url');
     } else {
       setEditingVideo(null);
@@ -735,6 +732,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const currentVideosCount = platformData.videos.filter((v) => v.resourceId === chosenResId).length;
       setVidOrder(currentVideosCount + 1);
       setVidLinkedQuizId('');
+      setVidLinkedFileId('');
       setVidSourceMode('upload');
     }
     setIsVideoModalOpen(true);
@@ -805,6 +803,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           durationMinutes: vidDuration || 10,
           order: vidOrder || 1,
           linkedQuizId: vidLinkedQuizId || undefined,
+          linkedFileId: vidLinkedFileId || undefined,
         });
       } else {
         savedVideoItem = await apiService.createVideo({
@@ -816,6 +815,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           durationMinutes: vidDuration || 10,
           order: vidOrder || 1,
           linkedQuizId: vidLinkedQuizId || undefined,
+          linkedFileId: vidLinkedFileId || undefined,
         });
         setEditingVideo(savedVideoItem);
       }
@@ -883,6 +883,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           durationMinutes: vidDuration || 10,
           order: vidOrder || 1,
           linkedQuizId: vidLinkedQuizId || undefined,
+          linkedFileId: vidLinkedFileId || undefined,
         });
         showToast('تم تعديل الفيديو وحفظه بشكل دائم بنجاح!');
       } else {
@@ -895,6 +896,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           durationMinutes: vidDuration || 10,
           order: vidOrder || 1,
           linkedQuizId: vidLinkedQuizId || undefined,
+          linkedFileId: vidLinkedFileId || undefined,
         });
         showToast('تمت إضافة الفيديو الجديد وحفظه بنجاح!');
       }
@@ -931,6 +933,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [fileSize, setFileSize] = useState('2.5 MB');
   const [filePagesCount, setFilePagesCount] = useState<number>(20);
   const [fileOrder, setFileOrder] = useState<number>(1);
+  const [fileLinkedVideoId, setFileLinkedVideoId] = useState<string>('');
   const [fileSourceMode, setFileSourceMode] = useState<'upload' | 'url'>('upload');
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
@@ -948,6 +951,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setFilePagesCount(file.pagesCount || 20);
       setFileOrder(file.order || 1);
       setFileSourceMode(file.fileUrl.startsWith('/uploads/') ? 'upload' : 'url');
+      const linkedVid = platformData.videos.find((v) => v.linkedFileId === file.id);
+      setFileLinkedVideoId(linkedVid?.id || '');
     } else {
       setEditingFile(null);
       const initialSec = platformData.sections[0]?.id || '';
@@ -963,6 +968,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const currentFilesCount = platformData.files.filter((f) => f.resourceId === matchingRes?.id).length;
       setFileOrder(currentFilesCount + 1);
       setFileSourceMode('upload');
+      setFileLinkedVideoId('');
     }
     setIsFileModalOpen(true);
   };
@@ -1020,8 +1026,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const parentResource = platformData.resources.find((r) => r.id === fileResourceId);
     const chosenSectionId = fileSectionId || parentResource?.sectionId || platformData.sections[0]?.id;
     try {
+      let savedFileItem: FileItem;
       if (editingFile) {
-        await apiService.updateFile(editingFile.id, {
+        savedFileItem = await apiService.updateFile(editingFile.id, {
           resourceId: fileResourceId,
           sectionId: chosenSectionId,
           title: fileTitle,
@@ -1034,7 +1041,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         });
         showToast('تم تعديل الملف بنجاح');
       } else {
-        await apiService.createFile({
+        savedFileItem = await apiService.createFile({
           resourceId: fileResourceId,
           sectionId: chosenSectionId,
           title: fileTitle,
@@ -1047,6 +1054,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         });
         showToast('تمت إضافة الملف بنجاح ويظهر الآن للطلاب فوراً!');
       }
+
+      // Link to selected video if chosen
+      if (fileLinkedVideoId) {
+        const targetVid = platformData.videos.find((v) => v.id === fileLinkedVideoId);
+        if (targetVid && targetVid.linkedFileId !== savedFileItem.id) {
+          await apiService.updateVideo(targetVid.id, {
+            ...targetVid,
+            linkedFileId: savedFileItem.id,
+          });
+        }
+      }
+
+      // Unlink any videos previously associated with this file if now unlinked or changed
+      const oldVids = platformData.videos.filter(
+        (v) => v.linkedFileId === savedFileItem.id && v.id !== fileLinkedVideoId
+      );
+      for (const oldVid of oldVids) {
+        await apiService.updateVideo(oldVid.id, {
+          ...oldVid,
+          linkedFileId: undefined,
+        });
+      }
+
       await onRefreshData();
       setIsFileModalOpen(false);
     } catch (e: any) {
@@ -1677,27 +1707,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </button>
 
-        {/* زر ميزة دائرة تليجرام */}
-        <button
-          id="admin-tab-telegram"
-          onClick={() => setAdminTab('telegram')}
-          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
-            adminTab === 'telegram'
-              ? 'bg-[#0088cc] text-white shadow-xs'
-              : platformData.settings?.telegramWidget?.isEnabled
-              ? 'bg-sky-50 dark:bg-sky-950/60 text-[#0088cc] dark:text-sky-300 border border-sky-300 dark:border-sky-800'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <TelegramPlaneIcon className="w-4 h-4" />
-          <span>دائرة تليجرام</span>
-          {platformData.settings?.telegramWidget?.isEnabled && (
-            <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-              مفعلة
-            </span>
-          )}
-        </button>
-
         {/* زر البث المباشر في شريط التحكم */}
         <button
           id="admin-tab-livestream"
@@ -1983,6 +1992,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {platformData.videos.map((vid) => {
               const res = platformData.resources.find((r) => r.id === vid.resourceId);
               const linkedQ = platformData.quizzes.find((q) => q.id === vid.linkedQuizId);
+              const linkedF = platformData.files.find((f) => f.id === vid.linkedFileId);
 
               return (
                 <div
@@ -2012,6 +2022,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {linkedQ && (
                       <div className="text-[11px] bg-amber-50 text-amber-900 font-bold p-2 rounded-lg border border-amber-200">
                         مرتبط باختبار: {linkedQ.title}
+                      </div>
+                    )}
+
+                    {linkedF && (
+                      <div className="text-[11px] bg-blue-50 text-blue-900 font-bold p-2 rounded-lg border border-blue-200 flex items-center gap-1.5">
+                        <span>📄</span>
+                        <span>مرفق بملف / مذكرة: {linkedF.title}</span>
                       </div>
                     )}
                   </div>
@@ -2065,6 +2082,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {platformData.files.map((file) => {
               const res = platformData.resources.find((r) => r.id === file.resourceId);
+              const linkedVid = platformData.videos.find((v) => v.linkedFileId === file.id);
 
               return (
                 <div
@@ -2085,6 +2103,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                       {file.description}
                     </p>
+
+                    {linkedVid && (
+                      <div className="text-[11px] bg-emerald-50 text-emerald-900 font-bold p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                        <span>🎬</span>
+                        <span>مرتبط بفيديو الدرس: {linkedVid.title}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
@@ -2652,7 +2677,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onDeleteStudent={handleDeleteStudent}
           onSetStudentSubscription={handleSetStudentSubscription}
           onRefreshStats={loadAdminStats}
-          onOpenTelegramTab={() => setAdminTab('telegram')}
           isSaving={isSavingAccess}
         />
       )}
@@ -2665,25 +2689,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           announcement={platformAnnouncement}
           onSaveAnnouncement={handleSaveAnnouncement}
           isSaving={isSavingAnnouncement}
-        />
-      )}
-
-      {/* ==================================================== */}
-      {/* 11. TELEGRAM CIRCLE WIDGET TAB */}
-      {/* ==================================================== */}
-      {adminTab === 'telegram' && (
-        <AdminTelegramWidgetTab
-          initialConfig={platformData.settings?.telegramWidget}
-          onSaveConfig={async (config) => {
-            setIsSavingTelegram(true);
-            try {
-              await apiService.saveTelegramWidgetConfig(config);
-              await onRefreshData();
-            } finally {
-              setIsSavingTelegram(false);
-            }
-          }}
-          isSaving={isSavingTelegram}
         />
       )}
 
@@ -3038,7 +3043,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">المدة (دقائق)</label>
                   <input
@@ -3068,9 +3073,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={(e) => setVidLinkedQuizId(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-right text-slate-900 dark:text-white"
                   >
-                    <option value="">بدون ربط</option>
+                    <option value="">بدون اختبار</option>
                     {platformData.quizzes.map((q) => (
                       <option key={q.id} value={q.id}>{q.title}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">ربط بملف / مذكرة</label>
+                  <select
+                    value={vidLinkedFileId}
+                    onChange={(e) => setVidLinkedFileId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-right text-slate-900 dark:text-white"
+                  >
+                    <option value="">بدون ملف مرفق</option>
+                    {platformData.files.map((f) => (
+                      <option key={f.id} value={f.id}>📄 {f.title} ({f.fileSize || f.fileType})</option>
                     ))}
                   </select>
                 </div>
@@ -3283,6 +3302,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="w-full px-2 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-right text-slate-900 dark:text-white"
                   />
                 </div>
+              </div>
+
+              {/* ربط هذا الملف بفيديو معين */}
+              <div className="space-y-1.5 p-3.5 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl">
+                <label className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center justify-between">
+                  <span>ربط هذا الملف بفيديو / شرح معين 🎬</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">اختياري - يظهر الملف للطلاب تحت الفيديو مباشرة</span>
+                </label>
+                <select
+                  value={fileLinkedVideoId}
+                  onChange={(e) => setFileLinkedVideoId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm text-right text-slate-900 dark:text-white"
+                >
+                  <option value="">بدون ربط بفيديو</option>
+                  {platformData.videos.map((v) => {
+                    const res = platformData.resources.find((r) => r.id === v.resourceId);
+                    return (
+                      <option key={v.id} value={v.id}>
+                        🎬 {v.title} ({res?.title || 'شرح'})
+                      </option>
+                    );
+                  })}
+                </select>
+                {fileLinkedVideoId && (
+                  <p className="text-[11px] text-emerald-800 dark:text-emerald-400 font-bold flex items-center gap-1">
+                    <span>✓</span>
+                    <span>سيتم ربط هذا الملف بفيديو الدرس ويظهر تحته كـ مذكرة قابلة للفتح والتحميل.</span>
+                  </p>
+                )}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { VideoItem, Quiz } from '../types';
+import { VideoItem, Quiz, FileItem } from '../types';
 import { 
   X, 
   CheckCircle, 
@@ -12,16 +12,20 @@ import {
   Volume2,
   VolumeX,
   ExternalLink,
-  PictureInPicture2
+  PictureInPicture2,
+  FileText,
+  ArrowLeft
 } from 'lucide-react';
 
 interface VideoPlayerModalProps {
   video: VideoItem;
   linkedQuiz?: Quiz;
+  linkedFile?: FileItem;
   isCompleted: boolean;
   onClose: () => void;
   onToggleComplete: (videoId: string) => void;
   onStartQuiz: (quiz: Quiz) => void;
+  onOpenFile?: (file: FileItem) => void;
 }
 
 type VideoType = 'html5' | 'youtube' | 'vimeo' | 'drive' | 'iframe';
@@ -176,10 +180,12 @@ function normalizeVideoUrl(inputUrl: string): NormalizedVideo {
 export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
   video,
   linkedQuiz,
+  linkedFile,
   isCompleted,
   onClose,
   onToggleComplete,
   onStartQuiz,
+  onOpenFile,
 }) => {
   const normalized = useMemo(() => normalizeVideoUrl(video.videoUrl), [video.videoUrl]);
   const isEmbedPlayer = normalized.type === 'youtube' || normalized.type === 'drive' || normalized.type === 'vimeo' || normalized.type === 'iframe';
@@ -615,28 +621,97 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
             {video.description || 'شرح تفصيلي للمفاهيم الأساسية والأمثلة المتكررة مع نصائح للحل السريع.'}
           </p>
 
-          {/* Linked Quiz Highlight */}
+          {/* Linked Quiz Highlight - Redesigned to be large, prominent, eye-catching, and crystal clear */}
           {linkedQuiz && (
-            <div className="bg-amber-50 dark:bg-amber-950/30 rounded-2xl p-4 border border-amber-200 dark:border-amber-900/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3 text-right w-full sm:w-auto">
-                <div className="w-10 h-10 rounded-xl bg-amber-200 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-5 h-5" />
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500/15 via-emerald-500/10 to-teal-500/15 dark:from-amber-950/50 dark:via-emerald-950/30 dark:to-slate-900 border-2 border-amber-400 dark:border-amber-500/70 p-5 sm:p-6 shadow-xl shadow-amber-500/10 text-right transition-all">
+              <div className="absolute top-0 left-0 w-40 h-40 bg-amber-400/15 dark:bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                    <Sparkles className="w-8 h-8 animate-pulse text-white" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-black bg-amber-500 text-slate-950 shadow-xs">
+                        <span>🎯</span>
+                        <span>اختبار تقييمي مرتبط بهذا الشرح مباشرة</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white/90 dark:bg-slate-800/90 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                        <span>📝 {linkedQuiz.questions?.length || 0} أسئلة تدريبية</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        <span>⏱️ يمكنك الاختيار: بوقت أو بدون وقت</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+                        <span>🏆 نسبة النجاح {linkedQuiz.passingScorePercentage || 60}%</span>
+                      </span>
+                    </div>
+
+                    <h4 className="text-base sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                      {linkedQuiz.title}
+                    </h4>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 line-clamp-2">
+                      {linkedQuiz.description || 'اختبر فهمك لمفاهيم وقوانين هذا الدرس فوراً لترسيخ المعلومة وضمان استيعابها كاملاً.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="shrink-0 pt-2 lg:pt-0">
+                  <button
+                    id="start-linked-quiz-btn"
+                    onClick={() => {
+                      onClose();
+                      onStartQuiz(linkedQuiz);
+                    }}
+                    className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 hover:from-amber-400 hover:via-amber-500 hover:to-amber-400 text-slate-950 font-black text-sm sm:text-base shadow-xl shadow-amber-600/30 hover:shadow-amber-500/50 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer group"
+                  >
+                    <span>ابدأ حل الاختبار المرتبط الآن 🚀</span>
+                    <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1.5 transition-transform" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Linked File / Notes Card */}
+          {linkedFile && (
+            <div className="rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800/80 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-right transition-all">
+              <div className="flex items-center gap-3.5 w-full sm:w-auto">
+                <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-600/30">
+                  <FileText className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-amber-900 dark:text-amber-300 block">اختبار تفاعلي مرتبط بهذا الشرح:</span>
-                  <span className="text-sm text-amber-950 dark:text-amber-100 font-black">{linkedQuiz.title}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                      مذكرة / ملف مرفق بالدرس
+                    </span>
+                    {linkedFile.fileSize && (
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">{linkedFile.fileSize}</span>
+                    )}
+                  </div>
+                  <h5 className="text-sm font-black text-slate-900 dark:text-white mt-1">
+                    {linkedFile.title}
+                  </h5>
+                  {linkedFile.description && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{linkedFile.description}</p>
+                  )}
                 </div>
               </div>
 
-              <button
-                onClick={() => {
-                  onClose();
-                  onStartQuiz(linkedQuiz);
-                }}
-                className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs whitespace-nowrap text-center"
-              >
-                بدء الاختبار المرتبط الآن
-              </button>
+              {onOpenFile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenFile(linkedFile);
+                  }}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap shrink-0 hover:scale-105 active:scale-95"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>فتح المذكرة / الملف 📄</span>
+                </button>
+              )}
             </div>
           )}
         </div>

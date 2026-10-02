@@ -916,10 +916,14 @@ export default function App() {
             linkedQuiz={platformData.quizzes.find(
               (q) => q.id === activeVideo.linkedQuizId || q.linkedVideoId === activeVideo.id
             )}
+            linkedFile={platformData.files.find(
+              (f) => f.id === activeVideo.linkedFileId
+            )}
             isCompleted={currentUser?.progress?.completedVideoIds?.includes(activeVideo.id) || false}
             onClose={() => setActiveVideo(null)}
             onToggleComplete={handleToggleVideoComplete}
             onStartQuiz={handleStartQuiz}
+            onOpenFile={handleOpenFile}
           />
         )}
 

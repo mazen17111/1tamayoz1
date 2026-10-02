@@ -711,6 +711,7 @@ export const apiService = {
       videoUrl: video.videoUrl || '',
       durationMinutes: video.durationMinutes || 10,
       linkedQuizId: video.linkedQuizId || undefined,
+      linkedFileId: video.linkedFileId || undefined,
       order: video.order || 99,
       createdAt: new Date().toISOString()
     };

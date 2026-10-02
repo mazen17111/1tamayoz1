@@ -22,6 +22,7 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
+  ArrowLeft,
   Bookmark,
   ExternalLink,
   HelpCircle,
@@ -62,6 +63,7 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
   activeSectionId,
   onSelectSection,
   onStartQuiz,
+  onOpenFile,
   onOpenFileLocked,
   onToggleBookmark,
   onToggleVideoComplete,
@@ -129,6 +131,10 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
 
   const linkedQuiz = displayedVideo
     ? quizzes.find((q) => q.id === displayedVideo.linkedQuizId || q.linkedVideoId === displayedVideo.id)
+    : null;
+
+  const linkedFile = displayedVideo && displayedVideo.linkedFileId
+    ? files.find((f) => f.id === displayedVideo.linkedFileId)
     : null;
 
   const studioVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -681,22 +687,104 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
           )}
         </div>
 
-        {/* Video Description & Linked Quick Quiz */}
+        {/* Video Description, Linked File & Linked Big Beautiful Quiz */}
         {displayedVideo && (
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-right">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4 text-right">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               {displayedVideo.description || 'شرح تفصيلي ومبسط لأهم الأفكار والنماذج التدريبية.'}
             </p>
 
+            {/* 1. Large, Eye-Catching, Beautiful Linked Quiz Card */}
             {linkedQuiz && (
-              <button
-                type="button"
-                onClick={() => onStartQuiz(linkedQuiz)}
-                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer self-start sm:self-auto"
+              <div 
+                id="studio-linked-quiz-card"
+                className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/15 via-emerald-600/15 to-teal-500/15 dark:from-amber-950/60 dark:via-emerald-950/50 dark:to-slate-900 border-2 border-amber-400 dark:border-amber-500/80 p-5 sm:p-6 shadow-xl shadow-amber-500/10 text-right transition-all"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>اختبار الدرس التدريبي</span>
-              </button>
+                <div className="absolute top-0 left-0 w-48 h-48 bg-amber-400/15 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                      <Sparkles className="w-8 h-8 animate-pulse text-white" />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500 text-slate-950 shadow-xs">
+                          <span>🎯</span>
+                          <span>اختبار تطبيقي مرتبط بهذا الشرح</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-slate-200 bg-white/90 dark:bg-slate-800/90 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                          📝 {linkedQuiz.questions?.length || 0} أسئلة
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/70 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                          ⏱️ يمكنك اختيار الوقت أو بدون وقت
+                        </span>
+                      </div>
+
+                      <h4 className="text-base sm:text-xl font-black text-slate-900 dark:text-white">
+                        {linkedQuiz.title}
+                      </h4>
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 line-clamp-2">
+                        {linkedQuiz.description || 'اختبر فهمك لأهم أفكار وقوانين هذا الدرس مباشرة لترسيخ المعلومة وضمان استيعابها كاملاً.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 pt-2 lg:pt-0">
+                    <button
+                      type="button"
+                      id="studio-start-linked-quiz-btn"
+                      onClick={() => onStartQuiz(linkedQuiz)}
+                      className="w-full sm:w-auto px-7 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-500 hover:from-amber-400 hover:via-amber-500 hover:to-amber-400 text-slate-950 font-black text-sm sm:text-base shadow-xl shadow-amber-600/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 cursor-pointer group"
+                    >
+                      <span>ابدأ حل الاختبار المرتبط الآن 🚀</span>
+                      <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1.5 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 2. Linked File Card (الملف أو المذكرة المرتبطة بالفيديو) */}
+            {linkedFile && (
+              <div 
+                id="studio-linked-file-card"
+                className="rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border-2 border-blue-200 dark:border-blue-800/80 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-right transition-all"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-600/30">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                        مذكرة / ملف الشرح المرفق 📄
+                      </span>
+                      {linkedFile.fileSize && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">{linkedFile.fileSize}</span>
+                      )}
+                    </div>
+                    <h5 className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-1">
+                      {linkedFile.title}
+                    </h5>
+                    {linkedFile.description && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{linkedFile.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                {onOpenFile && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenFile(linkedFile)}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>فتح المذكرة / الملف 📄</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}

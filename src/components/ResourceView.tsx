@@ -450,8 +450,9 @@ export const ResourceView: React.FC<ResourceViewProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {resourceVideos.map((video, idx) => {
                             const isCompleted = currentUser?.progress?.completedVideoIds?.includes(video.id);
-                            // Find if this video has a linked quiz!
+                            // Find if this video has a linked quiz or linked file!
                             const linkedQuiz = quizzes.find((q) => q.id === video.linkedQuizId || q.linkedVideoId === video.id);
+                            const linkedFile = files.find((f) => f.id === video.linkedFileId);
 
                             return (
                               <div
@@ -519,23 +520,61 @@ export const ResourceView: React.FC<ResourceViewProps> = ({
                                     {video.description || 'شرح الدرس وطرق الحل السريعة.'}
                                   </p>
 
-                                  {/* Linked Quiz Callout (Specific User Requirement: "ربط اختبار بفيديو محدد") */}
+                                  {/* Linked Quiz Callout (Large, Beautiful & Eye-Catching) */}
                                   {linkedQuiz && (
-                                    <div className="bg-amber-50 dark:bg-amber-950/40 rounded-xl p-3 border border-amber-200/80 dark:border-amber-800/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                                      <div className="flex items-center gap-2">
-                                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                                        <div className="text-right">
-                                          <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 block">اختبار مرتبط بهذا الفيديو:</span>
-                                          <span className="text-xs text-amber-800 dark:text-amber-300 font-semibold">{linkedQuiz.title}</span>
+                                    <div className="bg-gradient-to-br from-amber-500/15 via-emerald-500/10 to-teal-500/10 dark:from-amber-950/50 dark:via-emerald-950/30 dark:to-slate-900 rounded-2xl p-4 border-2 border-amber-400 dark:border-amber-500/70 shadow-md shadow-amber-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-right">
+                                      <div className="flex items-start gap-3 min-w-0">
+                                        <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+                                          <Sparkles className="w-5 h-5 text-slate-950" />
+                                        </div>
+                                        <div className="space-y-1 min-w-0">
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">
+                                              اختبار مرتبط بالدرس 🎯
+                                            </span>
+                                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                                              📝 {linkedQuiz.questions?.length || 0} أسئلة
+                                            </span>
+                                          </div>
+                                          <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate">
+                                            {linkedQuiz.title}
+                                          </h4>
                                         </div>
                                       </div>
                                       <button
+                                        type="button"
+                                        id={`start-linked-quiz-${video.id}`}
                                         onClick={() => onStartQuiz(linkedQuiz)}
-                                        className="w-full sm:w-auto justify-center whitespace-nowrap px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1"
+                                        className="w-full sm:w-auto justify-center whitespace-nowrap px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md shadow-amber-500/20 flex items-center gap-1.5 shrink-0 hover:scale-105 active:scale-95"
                                       >
-                                        {!currentUser && <Lock className="w-3 h-3 text-amber-200" />}
-                                        <span>{currentUser ? 'ابدأ الاختبار' : 'تسجيل الدخول للحل'}</span>
+                                        {!currentUser && <Lock className="w-3.5 h-3.5 text-slate-950" />}
+                                        <span>{currentUser ? 'ابدأ الاختبار المرتبط 🚀' : 'تسجيل الدخول للحل'}</span>
                                       </button>
+                                    </div>
+                                  )}
+
+                                  {/* Linked File Callout */}
+                                  {linkedFile && (
+                                    <div className="bg-blue-50/80 dark:bg-blue-950/40 rounded-xl p-3 border border-blue-200 dark:border-blue-800/80 flex items-center justify-between gap-2.5">
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+                                          <FileText className="w-4 h-4" />
+                                        </div>
+                                        <div className="text-right truncate">
+                                          <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 block">مذكرة مرفقة:</span>
+                                          <span className="text-xs text-slate-800 dark:text-slate-200 font-bold truncate block">{linkedFile.title}</span>
+                                        </div>
+                                      </div>
+                                      {onOpenFile && (
+                                        <button
+                                          type="button"
+                                          onClick={() => onOpenFile(linkedFile)}
+                                          className="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1"
+                                        >
+                                          <FileText className="w-3.5 h-3.5" />
+                                          <span>فتح المذكرة 📄</span>
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </div>

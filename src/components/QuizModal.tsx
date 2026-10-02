@@ -52,14 +52,16 @@ export const QuizModal: React.FC<QuizModalProps> = ({
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [isFinished, setIsFinished] = useState(false);
   const [folderTargetQuestion, setFolderTargetQuestion] = useState<Question | null>(null);
+  const [hasChosenMode, setHasChosenMode] = useState<boolean>(false);
+  const [isTimedMode, setIsTimedMode] = useState<boolean>(() => quiz.timeLimitMinutes > 0);
   const [startTime, setStartTime] = useState<number>(() => Date.now());
   const [finishedTimeSpent, setFinishedTimeSpent] = useState<{ seconds: number; formatted: string }>({
     seconds: 0,
     formatted: '',
   });
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState<number>(
-    quiz.timeLimitMinutes > 0 ? quiz.timeLimitMinutes * 60 : 0
-  );
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState<number>(() => {
+    return quiz.timeLimitMinutes > 0 ? quiz.timeLimitMinutes * 60 : 15 * 60;
+  });
   const [imageZoomUrl, setImageZoomUrl] = useState<string | null>(null);
 
   // Whiteboard scratchpad state per question
@@ -117,7 +119,7 @@ export const QuizModal: React.FC<QuizModalProps> = ({
 
   // Timer countdown
   useEffect(() => {
-    if (isFinished || quiz.timeLimitMinutes <= 0) return;
+    if (!hasChosenMode || isFinished || !isTimedMode) return;
 
     if (timeLeftSeconds <= 0) {
       handleFinishQuiz();
@@ -129,7 +131,7 @@ export const QuizModal: React.FC<QuizModalProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeftSeconds, isFinished, quiz.timeLimitMinutes]);
+  }, [hasChosenMode, timeLeftSeconds, isFinished, isTimedMode]);
 
   const handleSelectOption = (optionIndex: number) => {
     if (isFinished) return;
@@ -223,9 +225,10 @@ export const QuizModal: React.FC<QuizModalProps> = ({
     setSelectedAnswers({});
     setCurrentQuestionIdx(0);
     setIsFinished(false);
+    setHasChosenMode(false);
     setStartTime(Date.now());
     setFinishedTimeSpent({ seconds: 0, formatted: '' });
-    setTimeLeftSeconds(quiz.timeLimitMinutes > 0 ? quiz.timeLimitMinutes * 60 : 0);
+    setTimeLeftSeconds(quiz.timeLimitMinutes > 0 ? quiz.timeLimitMinutes * 60 : 15 * 60);
     setDrawingsPerQuestion({});
     setMobileTab('question');
   };
@@ -324,8 +327,15 @@ export const QuizModal: React.FC<QuizModalProps> = ({
         {/* Center / Left side: Tools (Whiteboard toggle, Timer, Fullscreen) */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           
+          {!hasChosenMode && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-bold">
+              <span>🎯</span>
+              <span>تحديد نمط الاختبار</span>
+            </span>
+          )}
+
           {/* Whiteboard toggle button (during active quiz) */}
-          {!isFinished && (
+          {hasChosenMode && !isFinished && (
             <button
               type="button"
               onClick={() => {
@@ -344,22 +354,30 @@ export const QuizModal: React.FC<QuizModalProps> = ({
                 {isWhiteboardOpen ? 'إخفاء السبورة' : 'السبورة الذكية (مسودة)'}
               </span>
               <span className="sm:hidden">السبورة</span>
-              {drawingsPerQuestion[currentQuestion.id] && (
+              {currentQuestion && drawingsPerQuestion[currentQuestion.id] && (
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
               )}
             </button>
           )}
 
-          {/* Timer Display */}
-          {!isFinished && quiz.timeLimitMinutes > 0 && (
-            <div className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl font-mono text-xs sm:text-sm font-bold border ${
-              timeLeftSeconds < 120 
-                ? 'bg-rose-950/70 text-rose-300 border-rose-800 animate-pulse' 
-                : 'bg-slate-850 text-slate-200 border-slate-700'
-            }`}>
-              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-              <span>{timerFormatted}</span>
-            </div>
+          {/* Timer Display or Free Practice Mode */}
+          {hasChosenMode && !isFinished && (
+            isTimedMode ? (
+              <div className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl font-mono text-xs sm:text-sm font-bold border ${
+                timeLeftSeconds < 120 
+                  ? 'bg-rose-950/70 text-rose-300 border-rose-800 animate-pulse' 
+                  : 'bg-slate-850 text-slate-200 border-slate-700'
+              }`}>
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+                <span>{timerFormatted}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
+                <span>♾️</span>
+                <span className="hidden sm:inline">تدريب حر (بدون وقت)</span>
+                <span className="sm:hidden">بدون وقت</span>
+              </div>
+            )
           )}
 
           {/* Fullscreen API Toggle */}
@@ -381,7 +399,7 @@ export const QuizModal: React.FC<QuizModalProps> = ({
       {/* ======================================================== */}
       {/* 2. QUESTION NAVIGATOR STRIP (DURING ACTIVE QUIZ)         */}
       {/* ======================================================== */}
-      {!isFinished && (
+      {hasChosenMode && !isFinished && (
         <div className="shrink-0 bg-slate-900 border-b border-slate-800/80 px-3 sm:px-6 py-2 flex items-center justify-between gap-3 overflow-x-auto select-none">
           <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-thin">
             {questions.map((q, idx) => {
@@ -420,7 +438,7 @@ export const QuizModal: React.FC<QuizModalProps> = ({
       )}
 
       {/* Mobile view switcher tab (shown on small screens if whiteboard is open) */}
-      {!isFinished && isWhiteboardOpen && (
+      {hasChosenMode && !isFinished && isWhiteboardOpen && (
         <div className="lg:hidden shrink-0 flex items-center bg-slate-900 border-b border-slate-800 p-1">
           <button
             type="button"
@@ -452,7 +470,131 @@ export const QuizModal: React.FC<QuizModalProps> = ({
       {/* 3. MAIN WORKSPACE AREA                                    */}
       {/* ======================================================== */}
       <main className="flex-1 overflow-y-auto p-3 sm:p-6 w-full">
-        {!isFinished ? (
+        {!hasChosenMode ? (
+          /* ======================================================== */
+          /* PRE-QUIZ MODE SELECTION (اختيار الاختبار بوقت أم بدون وقت) */
+          /* ======================================================== */
+          <div className="min-h-full flex items-center justify-center py-6 px-3">
+            <div className="max-w-2xl w-full bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-9 shadow-2xl text-center space-y-7 relative overflow-hidden backdrop-blur-md">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="relative z-10 space-y-3">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-xs font-black">
+                  <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                  <span>منصة التميز التعليمية • نظام الاختبارات</span>
+                </div>
+
+                <h2 className="text-xl sm:text-3xl font-black text-white">
+                  {quiz.title}
+                </h2>
+
+                <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
+                  {quiz.description || 'اختر النمط المناسب لك للبدء في حل الأسئلة وقياس مستواك واستيعابك.'}
+                </p>
+
+                {/* Badges Bar */}
+                <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">
+                    <FileQuestion className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{totalQuestions} أسئلة</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">
+                    <Award className="w-3.5 h-3.5 text-amber-400" />
+                    <span>نسبة الاجتياز {quiz.passingScorePercentage || 60}%</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">
+                    <Clock className="w-3.5 h-3.5 text-sky-400" />
+                    <span>الوقت القياسي: {quiz.timeLimitMinutes > 0 ? `${quiz.timeLimitMinutes} دقيقة` : '15 دقيقة'}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Mode Selection Cards */}
+              <div className="relative z-10 space-y-3.5">
+                <h3 className="text-sm font-extrabold text-slate-200">
+                  هل تريد أداء الاختبار بوقت محدد أم بدون وقت؟ 👇
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-right">
+                  {/* Option 1: Timed Mode */}
+                  <button
+                    type="button"
+                    id="choose-timed-mode-btn"
+                    onClick={() => {
+                      const limit = quiz.timeLimitMinutes > 0 ? quiz.timeLimitMinutes * 60 : 15 * 60;
+                      setTimeLeftSeconds(limit);
+                      setIsTimedMode(true);
+                      setStartTime(Date.now());
+                      setHasChosenMode(true);
+                    }}
+                    className="group relative p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-slate-850 to-slate-900 hover:from-amber-950/40 hover:to-slate-900 border-2 border-slate-700 hover:border-amber-400/80 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-amber-500/10 flex flex-col justify-between text-right"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                          <Clock className="w-6 h-6" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">
+                          موصى به
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-black text-white group-hover:text-amber-300 transition-colors">
+                          اختبار بوقت محدد ⏱️
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                          محاكاة لاختبار قياس الحقيقي مع عداد تنازلي ({quiz.timeLimitMinutes > 0 ? `${quiz.timeLimitMinutes} دقيقة` : '15 دقيقة'}) لقياس سرعتك في الحل وإدارتك للوقت.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 w-full py-2.5 rounded-xl bg-amber-500 group-hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm text-center transition-all shadow-md">
+                      بدء الاختبار بوقت ⏱️
+                    </div>
+                  </button>
+
+                  {/* Option 2: Untimed Mode */}
+                  <button
+                    type="button"
+                    id="choose-untimed-mode-btn"
+                    onClick={() => {
+                      setIsTimedMode(false);
+                      setStartTime(Date.now());
+                      setHasChosenMode(true);
+                    }}
+                    className="group relative p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-slate-850 to-slate-900 hover:from-emerald-950/40 hover:to-slate-900 border-2 border-slate-700 hover:border-emerald-400/80 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-emerald-500/10 flex flex-col justify-between text-right"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-xl">
+                          ♾️
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full">
+                          تدريب حر
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-black text-white group-hover:text-emerald-300 transition-colors">
+                          تدريب بدون وقت ♾️
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                          حل الأسئلة بأريحية كاملة وبدون أي استعجال أو عداد زمني، مع إمكانية استخدام السبورة الذكية والتفكير المتأني في كل سؤال.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 w-full py-2.5 rounded-xl bg-emerald-600 group-hover:bg-emerald-500 text-white font-black text-xs sm:text-sm text-center transition-all shadow-md">
+                      بدء التدريب بدون وقت ♾️
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : !isFinished ? (
           /* ACTIVE QUIZ QUESTION VIEW */
           <div className="h-full flex flex-col justify-between max-w-7xl mx-auto w-full">
             

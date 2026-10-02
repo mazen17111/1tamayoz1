@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Send, 
   Plus, 
@@ -213,7 +213,7 @@ export const AdminTelegramWidgetTab: React.FC<AdminTelegramWidgetTabProps> = ({
       await onSaveConfig(updatedConfig);
       setStatusMessage({ 
         type: 'success', 
-        text: 'تم حفظ وتفعيل دائرة تليجرام بنجاح! الدائرة العائمة ظاهرة ومفعلة الآن على الشاشة لجميع الطلاب.' 
+        text: 'تم حفظ وتفعيل قنوات التليجرام بنجاح! أيقونة التليجرام ظاهرة ومفعلة الآن على الشاشة لجميع الطلاب.' 
       });
     } catch (err: any) {
       setStatusMessage({ type: 'error', text: err?.message || 'حدث خطأ أثناء حفظ الإعدادات، يرجى المحاولة مجدداً.' });
@@ -231,7 +231,7 @@ export const AdminTelegramWidgetTab: React.FC<AdminTelegramWidgetTabProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black text-white">ميزة دائرة تليجرام للطلاب</h2>
+              <h2 className="text-xl font-black text-white">قنوات ومجموعات التليجرام للطلاب</h2>
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
                 isEnabled 
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
@@ -241,7 +241,7 @@ export const AdminTelegramWidgetTab: React.FC<AdminTelegramWidgetTabProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              تتيح ظهور دائرة تليجرام عائمة للطلاب تفتح مستطيلاً صغيراً يعرض جروبات وقنوات التليجرام مع زر انضمام مباشر وإمكانية إخفائها للجلسة الحالية.
+              تتيح ظهور أيقونة تليجرام للطلاب تفتح نافذة تعرض مجموعات وقنوات التليجرام مع زر انضمام مباشر.
             </p>
           </div>
         </div>
@@ -290,10 +290,10 @@ export const AdminTelegramWidgetTab: React.FC<AdminTelegramWidgetTabProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950/70 border border-slate-800">
           <div>
             <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-              <span>تفعيل أو إيقاف دائرة تليجرام للطلاب</span>
+              <span>تفعيل أو إيقاف قنوات ومجموعات التليجرام للطلاب</span>
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              عند التفعيل، ستظهر الدائرة العائمة أسفل الشاشة للطلاب في المنصة فوراً.
+              عند التفعيل، ستظهر أيقونة التليجرام أسفل الشاشة للطلاب في المنصة فوراً.
             </p>
           </div>
 
@@ -316,7 +316,7 @@ export const AdminTelegramWidgetTab: React.FC<AdminTelegramWidgetTabProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-300 block">
-              عنوان المستطيل الصغير (النافذة للطلاب)
+              عنوان النافذة للطلاب
             </label>
             <input
               type="text"
@@ -329,7 +329,7 @@ export const AdminTelegramWidgetTab: React.FC<AdminTelegramWidgetTabProps> = ({
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-300 block">
-              تسمية شارة الدائرة (عند التمرير بالفأرة)
+              تسمية شارة التليجرام (عند التمرير بالفأرة)
             </label>
             <input
               type="text"
