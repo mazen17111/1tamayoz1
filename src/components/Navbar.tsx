@@ -78,16 +78,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onGoHome}
               className="flex items-center gap-2.5 sm:gap-3 group text-right cursor-pointer min-w-0"
             >
-              <div className="platform-logo-icon w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/30 group-hover:scale-105 transition-transform duration-200 shrink-0">
-                <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-white stroke-[2.2]" />
+              <div className="relative group-hover:scale-105 transition-transform duration-200 shrink-0 flex items-center">
+                <img
+                  src="/raed-logo.png"
+                  alt="شعار منصة أقسام رعد"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-contain shadow-md shadow-slate-900/10 border border-slate-200/80 dark:border-zinc-700 bg-white"
+                />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <span className="font-extrabold text-lg sm:text-2xl text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
-                    منصة التميز
-                  </span>
-                  <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full font-bold whitespace-nowrap border border-emerald-200 dark:border-emerald-800">
-                    التعليمية
+                    منصة أقسام رعد
                   </span>
                 </div>
                 <p className="hidden sm:block text-xs text-slate-500 dark:text-slate-300 font-medium truncate">

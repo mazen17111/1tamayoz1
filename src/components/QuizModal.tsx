@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { QuizWhiteboard } from './QuizWhiteboard';
 import { AddToFolderModal } from './AddToFolderModal';
+import { apiService } from '../services/api';
 
 interface QuizModalProps {
   quiz: Quiz;
@@ -204,6 +205,28 @@ export const QuizModal: React.FC<QuizModalProps> = ({
     });
 
     setIsFinished(true);
+
+    // Automatically transfer all mistaken questions directly to student's "مجلد أخطائي"
+    const wrongQuestions = questions
+      .filter((q, idx) => {
+        const selected = selectedAnswers[idx] !== undefined ? selectedAnswers[idx] : -1;
+        return selected !== q.correctOptionIndex;
+      })
+      .map((q, idx) => ({
+        ...q,
+        sourceQuizId: quiz.id,
+        sourceQuizTitle: quiz.title,
+        sourceSectionTitle: sectionTitle,
+        userAnswerIndex: selectedAnswers[questions.indexOf(q)] !== undefined ? selectedAnswers[questions.indexOf(q)] : -1,
+      }));
+
+    if (wrongQuestions.length > 0 && currentUser) {
+      apiService.addMistakenQuestions(wrongQuestions).then((updatedUser) => {
+        if (updatedUser && onUpdateUser) {
+          onUpdateUser(updatedUser);
+        }
+      }).catch((e) => console.warn('Could not auto-transfer wrong questions:', e));
+    }
 
     onComplete({
       quizId: quiz.id,
@@ -482,7 +505,7 @@ export const QuizModal: React.FC<QuizModalProps> = ({
               <div className="relative z-10 space-y-3">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-xs font-black">
                   <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                  <span>منصة التميز التعليمية • نظام الاختبارات</span>
+                  <span>منصة أقسام رعد • نظام الاختبارات</span>
                 </div>
 
                 <h2 className="text-xl sm:text-3xl font-black text-white">
@@ -786,6 +809,12 @@ export const QuizModal: React.FC<QuizModalProps> = ({
                   </span>
                 </div>
               </div>
+
+              {score < totalQuestions && (
+                <div className="p-3 bg-rose-950/70 border border-rose-700/80 rounded-2xl text-xs text-rose-200 flex items-center justify-center gap-2 font-bold shadow-inner animate-in fade-in duration-200">
+                  <span>📁 تم حفظ الأسئلة الخاطئة ({totalQuestions - score} أسئلة) تلقائياً في «مجلد أخطائي» بحسابك لتتمكن من إعادة التدرب عليها واختبار نفسك حتى تتقنها بالكامل!</span>
+                </div>
+              )}
             </div>
 
             {/* Detailed Questions Review */}
@@ -814,6 +843,11 @@ export const QuizModal: React.FC<QuizModalProps> = ({
                           <span className="text-xs font-bold text-slate-400">
                             السؤال رقم {idx + 1}
                           </span>
+                          {!isCorrect && (
+                            <span className="text-[10px] bg-rose-950/90 text-rose-300 border border-rose-700/70 px-2 py-0.5 rounded-lg font-bold">
+                              📁 نُقل تلقائياً إلى «مجلد أخطائي»
+                            </span>
+                          )}
                           {currentUser && (
                             <button
                               type="button"

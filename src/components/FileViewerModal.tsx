@@ -357,7 +357,7 @@ export const FileViewerModal: React.FC<FileViewerModalProps> = ({
         <div className="px-5 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-400 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-[11px]">
             <BookOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>منصة التميز التعليمية — المذكرات والملفات المعتمدة</span>
+            <span>منصة أقسام رعد — المذكرات والملفات المعتمدة</span>
           </div>
           <span className="text-[11px] text-slate-400 dark:text-slate-500">
             جاهز للقراءة والطباعة

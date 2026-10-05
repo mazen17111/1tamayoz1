@@ -109,7 +109,7 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
   // WhatsApp & Telegram Settings
   const [whatsappNumber, setWhatsappNumber] = useState(accessConfig?.whatsappNumber || '');
   const [whatsappMessage, setWhatsappMessage] = useState(
-    accessConfig?.whatsappMessage || 'السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة التميز التعليمية'
+    accessConfig?.whatsappMessage || 'السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة أقسام رعد'
   );
   const [telegramUsername, setTelegramUsername] = useState(accessConfig?.telegramUsername || '');
   const [subscriptionButtonText, setSubscriptionButtonText] = useState(
@@ -490,7 +490,7 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
                   type="text"
                   value={whatsappMessage}
                   onChange={(e) => setWhatsappMessage(e.target.value)}
-                  placeholder="مثال: السلام عليكم، أريد تفعيل اشتراكي في منصة التميز"
+                  placeholder="مثال: السلام عليكم، أريد تفعيل اشتراكي في منصة أقسام رعد"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 outline-hidden transition-all"
                 />
               </div>
@@ -961,25 +961,50 @@ export const AdminAccessTab: React.FC<AdminAccessTabProps> = ({
             )}
 
             {/* Modal Actions */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => handleSaveSubscription()}
-                disabled={isSavingSubscription || !parseInt(subscriptionDaysInput, 10)}
-                className="flex-1 py-3 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-black text-sm shadow-lg shadow-blue-600/25 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                <span>{isSavingSubscription ? 'جاري الحفظ...' : 'حفظ مدة الاشتراك'}</span>
-              </button>
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveSubscription()}
+                  disabled={isSavingSubscription || !parseInt(subscriptionDaysInput, 10)}
+                  className="flex-1 py-3 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-black text-xs sm:text-sm shadow-lg shadow-blue-600/25 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSavingSubscription ? 'جاري الحفظ...' : 'حفظ مدة الاشتراك'}</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setSubscriptionModalStudent(null)}
-                disabled={isSavingSubscription}
-                className="py-3 px-5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm transition-all cursor-pointer"
-              >
-                إلغاء
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveSubscription(-1)}
+                  disabled={isSavingSubscription}
+                  className="py-3 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-98 text-white font-black text-xs sm:text-sm shadow-lg shadow-rose-600/25 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  title="إنهاء الاشتراك فوراً وقفل المنصة عليه كمنتهي"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>إنهاء الاشتراك فوراً</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveSubscription(0)}
+                  disabled={isSavingSubscription}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                  title="فتح المنصة للطالب دون تحديد أيام (دخول دائم بدون تقييد)"
+                >
+                  إلغاء تقييد المدة (دخول مفتوح)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSubscriptionModalStudent(null)}
+                  disabled={isSavingSubscription}
+                  className="py-2.5 px-5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
             </div>
 
           </div>

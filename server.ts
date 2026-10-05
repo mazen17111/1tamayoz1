@@ -62,27 +62,67 @@ const chunkUpload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
 });
 
+function normalizePassword(pwd: string): string {
+  if (!pwd) return '';
+  let s = String(pwd).trim();
+  const arabicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+  for (let i = 0; i <= 9; i++) {
+    s = s.replaceAll(arabicDigits[i], String(i));
+  }
+  return s;
+}
+
 // Secure password hashing with salt and scrypt
 function hashPassword(password: string): string {
+  const norm = normalizePassword(password);
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  const hash = crypto.scryptSync(norm, salt, 64).toString('hex');
   return `${salt}:${hash}`;
 }
 
 function verifyPassword(password: string, stored: string | undefined): boolean {
-  if (!stored) return false;
+  if (!stored || !password) return false;
+  const norm = normalizePassword(password);
+  const trimmed = String(password).trim();
+
   // If not yet hashed (backward compatibility during migration)
   if (!stored.includes(':')) {
-    return password === stored;
+    return password === stored || norm === stored || trimmed === stored;
   }
   const [salt, originalHash] = stored.split(':');
   if (!salt || !originalHash) return false;
+
+  const targetBuffer = Buffer.from(originalHash, 'hex');
+
+  // Test 1: Normalized password (whitespace stripped, Arabic numerals unified)
   try {
-    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
-    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(originalHash, 'hex'));
-  } catch (err) {
-    return false;
+    const hash1 = crypto.scryptSync(norm, salt, 64).toString('hex');
+    if (crypto.timingSafeEqual(Buffer.from(hash1, 'hex'), targetBuffer)) {
+      return true;
+    }
+  } catch {}
+
+  // Test 2: Trimmed password
+  if (trimmed !== norm) {
+    try {
+      const hash2 = crypto.scryptSync(trimmed, salt, 64).toString('hex');
+      if (crypto.timingSafeEqual(Buffer.from(hash2, 'hex'), targetBuffer)) {
+        return true;
+      }
+    } catch {}
   }
+
+  // Test 3: Raw password
+  if (password !== trimmed && password !== norm) {
+    try {
+      const hash3 = crypto.scryptSync(password, salt, 64).toString('hex');
+      if (crypto.timingSafeEqual(Buffer.from(hash3, 'hex'), targetBuffer)) {
+        return true;
+      }
+    } catch {}
+  }
+
+  return false;
 }
 
 // Automatically synchronize code-level defaultData.ts so any dev restart or build preserves exact state
@@ -275,6 +315,45 @@ function loadUsers(): StoredUsers {
   // 2. Hash any unhashed passwords
   let modified = false;
   for (const user of loaded.users) {
+    if (user.email) {
+      const normalizedEmail = user.email.trim().toLowerCase();
+      if (user.email !== normalizedEmail) {
+        user.email = normalizedEmail;
+        modified = true;
+      }
+    }
+
+    if (user.role === 'student') {
+      if (!user.progress) {
+        user.progress = {
+          completedVideoIds: [],
+          completedQuizAttempts: [],
+          bookmarkedResourceIds: [],
+          questionFolders: [],
+        };
+        modified = true;
+      }
+      if (!user.progress.questionFolders) {
+        user.progress.questionFolders = [];
+        modified = true;
+      }
+      const hasMistakes = user.progress.questionFolders.some(
+        (f) => f.id === 'folder-mistakes-permanent' || f.name === 'مجلد أخطائي'
+      );
+      if (!hasMistakes) {
+        user.progress.questionFolders.unshift({
+          id: 'folder-mistakes-permanent',
+          name: 'مجلد أخطائي',
+          createdAt: new Date().toISOString(),
+          color: 'rose',
+          isPermanent: true,
+          isMistakesFolder: true,
+          questions: [],
+        });
+        modified = true;
+      }
+    }
+
     if (user.role === 'admin' || user.id === 'admin-1') {
       if (!verifyPassword(ADMIN_TARGET_PASSWORD, user.passwordHash)) {
         user.passwordHash = hashPassword(ADMIN_TARGET_PASSWORD);
@@ -921,10 +1000,15 @@ startxref
           ...defaultPlatformSettings.access,
           ...(current.access || {}),
           ...(incoming.access || {}),
-          studentSubscriptions: {
-            ...(current.access?.studentSubscriptions || {}),
-            ...(incoming.access?.studentSubscriptions || {}),
-          },
+          studentSubscriptions: incoming.access?.studentSubscriptions !== undefined
+            ? incoming.access.studentSubscriptions
+            : (current.access?.studentSubscriptions || {}),
+          blockedStudentEmails: incoming.access?.blockedStudentEmails !== undefined
+            ? incoming.access.blockedStudentEmails
+            : (current.access?.blockedStudentEmails || []),
+          allowedStudentEmails: incoming.access?.allowedStudentEmails !== undefined
+            ? incoming.access.allowedStudentEmails
+            : (current.access?.allowedStudentEmails || []),
           updatedAt: incoming.access?.updatedAt || new Date().toISOString()
         }
       };
@@ -1480,7 +1564,7 @@ startxref
   // 5. Files CRUD
   app.post('/api/files', (req, res) => {
     platformData = loadPlatformData();
-    const { resourceId, sectionId, title, description, fileUrl, fileType, fileSize, pagesCount, order } = req.body;
+    const { resourceId, sectionId, title, description, fileUrl, fileType, fileSize, pagesCount, order, linkedVideoId } = req.body;
     if (!resourceId || !title || !fileUrl) {
       return res.status(400).json({ error: 'المصدر وعنوان ورابط الملف مطلوبة' });
     }
@@ -1488,6 +1572,7 @@ startxref
       id: req.body.id || `file-${Date.now()}`,
       resourceId,
       sectionId: sectionId || platformData.resources.find((r) => r.id === resourceId)?.sectionId || '',
+      linkedVideoId: linkedVideoId ? String(linkedVideoId).trim() : undefined,
       title: title.trim(),
       description: description?.trim() || '',
       fileUrl: fileUrl.trim(),
@@ -1514,7 +1599,7 @@ startxref
     if (index === -1) {
       return res.status(404).json({ error: 'الملف غير موجود' });
     }
-    const { title, description, fileUrl, fileType, fileSize, pagesCount, resourceId, sectionId, order } = req.body;
+    const { title, description, fileUrl, fileType, fileSize, pagesCount, resourceId, sectionId, order, linkedVideoId } = req.body;
     platformData.files[index] = {
       ...platformData.files[index],
       title: title ? title.trim() : platformData.files[index].title,
@@ -1526,6 +1611,7 @@ startxref
       resourceId: resourceId || platformData.files[index].resourceId,
       sectionId: sectionId || platformData.files[index].sectionId,
       order: order !== undefined ? Number(order) : platformData.files[index].order,
+      linkedVideoId: linkedVideoId !== undefined ? (linkedVideoId ? String(linkedVideoId).trim() : undefined) : platformData.files[index].linkedVideoId,
     };
     savePlatformData(platformData);
     res.json(platformData.files[index]);
@@ -1711,7 +1797,7 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     if (!email || !password) {
       return res.status(400).json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبة' });
     }
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = String(email).trim().toLowerCase();
     usersData = loadUsers();
     let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
 
@@ -1740,7 +1826,7 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     }
 
     if (!user) {
-      return res.status(401).json({ error: 'هذا البريد الإلكتروني غير مسجل، يرجى إنشاء حساب طالب جديد' });
+      return res.status(401).json({ error: 'هذا البريد الإلكتروني غير مسجل، يرجى إنشاء حساب طالب جديد أولاً' });
     }
 
     // If user has no passwordHash recorded yet (legacy account), record this password
@@ -1751,9 +1837,18 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       return res.json({ user: safeUser, passwordHash: user.passwordHash });
     }
 
-    // Verify password strictly
-    if (!verifyPassword(password, user.passwordHash)) {
+    // Verify password strictly against user.passwordHash or firestorePasswordHash
+    const isLocalValid = verifyPassword(password, user.passwordHash);
+    const isFirestoreValid = firestorePasswordHash ? verifyPassword(password, firestorePasswordHash) : false;
+
+    if (!isLocalValid && !isFirestoreValid) {
       return res.status(401).json({ error: 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب' });
+    }
+
+    // If firestorePasswordHash was the matching one, update local cache
+    if (!isLocalValid && isFirestoreValid && firestorePasswordHash) {
+      user.passwordHash = firestorePasswordHash;
+      saveUsers(usersData);
     }
 
     const { passwordHash: _, ...safeUser } = user;
@@ -1765,15 +1860,36 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'جميع الحقول مطلوبة للتسجيل' });
     }
-    const cleanEmail = email.trim().toLowerCase();
-    usersData = loadUsers();
-    const existing = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (existing) {
-      return res.status(409).json({ error: 'هذا البريد الإلكتروني مسجل بالفعل، يرجى تسجيل الدخول باستخدام كلمة المرور الخاصة بك' });
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanName = String(name).trim();
+    const normPassword = normalizePassword(password);
+
+    if (normPassword.length < 6) {
+      return res.status(400).json({ error: 'كلمة المرور يجب أن لا تقل عن 6 خانات أو أحرف' });
     }
+
+    usersData = loadUsers();
+    let existingIndex = usersData.users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
+
+    if (existingIndex !== -1) {
+      const existing = usersData.users[existingIndex];
+      // If already registered and has password
+      if (existing.passwordHash) {
+        return res.status(409).json({ 
+          error: 'هذا البريد الإلكتروني مسجل بالفعل، يرجى تسجيل الدخول باستخدام كلمة المرور الخاصة بك' 
+        });
+      }
+      // If student account existed without password, allow setting initial password now!
+      existing.name = cleanName || existing.name;
+      existing.passwordHash = hashPassword(password);
+      saveUsers(usersData);
+      const { passwordHash, ...safeUser } = existing;
+      return res.json({ user: safeUser, passwordHash });
+    }
+
     const newUser: StudentUser & { passwordHash: string } = {
       id: `usr-${Date.now()}`,
-      name: name.trim(),
+      name: cleanName,
       email: cleanEmail,
       role: 'student',
       passwordHash: hashPassword(password),
@@ -1782,6 +1898,17 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
         completedVideoIds: [],
         completedQuizAttempts: [],
         bookmarkedResourceIds: [],
+        questionFolders: [
+          {
+            id: 'folder-mistakes-permanent',
+            name: 'مجلد أخطائي',
+            createdAt: new Date().toISOString(),
+            color: 'rose',
+            isPermanent: true,
+            isMistakesFolder: true,
+            questions: [],
+          },
+        ],
       },
     };
     usersData.users.push(newUser);
@@ -1915,9 +2042,24 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       user.progress.bookmarkedResourceIds = Array.from(currentList);
     }
 
-    // Handle Question Folders
+    // Handle Question Folders - ensure permanent mistakes folder is never lost
     if (Array.isArray(questionFolders)) {
-      user.progress.questionFolders = questionFolders;
+      const hasMistakes = questionFolders.some((f) => f && (f.id === 'folder-mistakes-permanent' || f.isMistakesFolder || f.name === 'مجلد أخطائي'));
+      if (!hasMistakes) {
+        const prevMistakes = (user.progress.questionFolders || []).find((f) => f && (f.id === 'folder-mistakes-permanent' || f.isMistakesFolder || f.name === 'مجلد أخطائي'));
+        const mistakesFolder = prevMistakes || {
+          id: 'folder-mistakes-permanent',
+          name: 'مجلد أخطائي',
+          createdAt: new Date().toISOString(),
+          color: 'rose',
+          isPermanent: true,
+          isMistakesFolder: true,
+          questions: [],
+        };
+        user.progress.questionFolders = [mistakesFolder, ...questionFolders];
+      } else {
+        user.progress.questionFolders = questionFolders;
+      }
     }
 
     saveUsers(usersData);
@@ -2027,7 +2169,25 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     }
 
     const numDays = days !== undefined && days !== null ? Number(days) : 0;
-    if (numDays > 0) {
+    const isExplicitExpiry = numDays === -1 || req.body.isExpired === true;
+
+    if (isExplicitExpiry) {
+      // Immediate termination / expiration: lock platform on this student with expired message
+      const now = new Date();
+      const startedAt = student.subscriptionStartedAt || new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      const expiresAt = new Date(now.getTime() - 60 * 1000).toISOString(); // 1 minute in the past
+
+      student.subscriptionDays = 0;
+      student.subscriptionStartedAt = startedAt;
+      student.subscriptionExpiresAt = expiresAt;
+
+      platformData.settings.access.studentSubscriptions[cleanEmail] = {
+        days: 0,
+        startedAt,
+        expiresAt,
+        studentName: student.name,
+      };
+    } else if (numDays > 0) {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString();
       student.subscriptionDays = numDays;
@@ -2052,9 +2212,15 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     saveUsers(usersData);
     savePlatformData(platformData);
 
+    const message = isExplicitExpiry 
+      ? 'تم إنهاء اشتراك الطالب بنجاح وقفل المنصة عليه' 
+      : numDays > 0 
+      ? `تم تعيين الوقت بنجاح وستغلق بعد عدد الأيام المحدد (${numDays} يوم)` 
+      : 'تم إلغاء مدة الاشتراك بنجاح';
+
     res.json({
       success: true,
-      message: numDays > 0 ? `تم تعيين الوقت بنجاح وستغلق بعد عدد الأيام المحدد (${numDays} يوم)` : 'تم إلغاء مدة الاشتراك بنجاح',
+      message,
       student: {
         id: student.id,
         name: student.name,

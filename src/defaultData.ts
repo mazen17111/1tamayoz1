@@ -89,7 +89,7 @@ export const initialPlatformData: PlatformData = {
     "description": "",
     "isEnabled": false,
     "updatedAt": "2026-09-27T10:54:08.637Z",
-    "title": "البث المباشر - منصة التميز التعليمية"
+    "title": "البث المباشر - منصة أقسام رعد"
   },
   "files": [
     {
@@ -539,7 +539,7 @@ export const initialPlatformData: PlatformData = {
       "type": "success"
     },
     "access": {
-      "whatsappMessage": "السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة التميز التعليمية",
+      "whatsappMessage": "السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة أقسام رعد",
       "subscriptionMessage": "انتهى اشتراكك أو تواصل مع المشرف لتفعيل الاشتراك أو اشترك الآن للوصول لكافة المحتويات.",
       "telegramUsername": "",
       "lockMessage": "نحن حالياً في فترة صيانة وتحديثات للمنصة لتجهيز أفضل تجربة تعليمية لكم. سنعود للعمل قريباً!",
@@ -1085,7 +1085,7 @@ export const defaultPlatformSettings: PlatformSettings = {
     "type": "success"
   },
   "access": {
-    "whatsappMessage": "السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة التميز التعليمية",
+    "whatsappMessage": "السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة أقسام رعد",
     "subscriptionMessage": "انتهى اشتراكك أو تواصل مع المشرف لتفعيل الاشتراك أو اشترك الآن للوصول لكافة المحتويات.",
     "telegramUsername": "",
     "lockMessage": "نحن حالياً في فترة صيانة وتحديثات للمنصة لتجهيز أفضل تجربة تعليمية لكم. سنعود للعمل قريباً!",

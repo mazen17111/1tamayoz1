@@ -329,16 +329,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const res = await apiService.setStudentSubscription(email, days);
       const numDays = Number(days) || 0;
+      const isExplicitExpiry = numDays === -1;
       const now = new Date();
-      const expiresAt = numDays > 0 ? new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString() : undefined;
-      const startedAt = numDays > 0 ? now.toISOString() : undefined;
+      const expiresAt = isExplicitExpiry 
+        ? new Date(now.getTime() - 60 * 1000).toISOString()
+        : numDays > 0 
+        ? new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString() 
+        : undefined;
+      const startedAt = isExplicitExpiry
+        ? new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+        : numDays > 0 
+        ? now.toISOString() 
+        : undefined;
       const emailLower = email.trim().toLowerCase();
 
       setPlatformAccess((prev) => {
         const nextSubs = { ...(prev.studentSubscriptions || {}) };
-        if (numDays > 0 && expiresAt && startedAt) {
+        if ((numDays > 0 || isExplicitExpiry) && expiresAt && startedAt) {
           nextSubs[emailLower] = {
-            days: numDays,
+            days: isExplicitExpiry ? 0 : numDays,
             startedAt,
             expiresAt,
           };
@@ -359,7 +368,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             s.email.toLowerCase() === emailLower
               ? {
                   ...s,
-                  subscriptionDays: numDays > 0 ? numDays : undefined,
+                  subscriptionDays: isExplicitExpiry ? 0 : numDays > 0 ? numDays : undefined,
                   subscriptionStartedAt: startedAt,
                   subscriptionExpiresAt: expiresAt,
                 }
@@ -369,7 +378,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
 
       await onRefreshData();
-      const messageToDisplay = numDays > 0
+      const messageToDisplay = isExplicitExpiry
+        ? 'تم إنهاء اشتراك الطالب بنجاح وقفل المنصة عليه'
+        : numDays > 0
         ? `تم تعيين الوقت بنجاح وستغلق بعد عدد الأيام المحدد (${numDays} يوم)`
         : 'تم إلغاء مدة الاشتراك بنجاح';
       showToast(messageToDisplay);
@@ -715,6 +726,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setVidOrder(video.order || 1);
       setVidLinkedQuizId(video.linkedQuizId || '');
       setVidLinkedFileId(video.linkedFileId || '');
+      setVidFileSearch('');
       setVidSourceMode(video.videoUrl.startsWith('/uploads/') ? 'upload' : 'url');
     } else {
       setEditingVideo(null);
@@ -733,6 +745,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setVidOrder(currentVideosCount + 1);
       setVidLinkedQuizId('');
       setVidLinkedFileId('');
+      setVidFileSearch('');
       setVidSourceMode('upload');
     }
     setIsVideoModalOpen(true);
@@ -934,6 +947,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [filePagesCount, setFilePagesCount] = useState<number>(20);
   const [fileOrder, setFileOrder] = useState<number>(1);
   const [fileLinkedVideoId, setFileLinkedVideoId] = useState<string>('');
+  const [fileVideoSearch, setFileVideoSearch] = useState<string>('');
+  const [fileVideoFilterSec, setFileVideoFilterSec] = useState<string>('all');
+  const [vidFileSearch, setVidFileSearch] = useState<string>('');
   const [fileSourceMode, setFileSourceMode] = useState<'upload' | 'url'>('upload');
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
@@ -951,8 +967,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setFilePagesCount(file.pagesCount || 20);
       setFileOrder(file.order || 1);
       setFileSourceMode(file.fileUrl.startsWith('/uploads/') ? 'upload' : 'url');
-      const linkedVid = platformData.videos.find((v) => v.linkedFileId === file.id);
-      setFileLinkedVideoId(linkedVid?.id || '');
+      const linkedVid = platformData.videos.find((v) => v.linkedFileId === file.id || v.id === file.linkedVideoId);
+      setFileLinkedVideoId(linkedVid?.id || file.linkedVideoId || '');
+      setFileVideoSearch('');
+      setFileVideoFilterSec('all');
     } else {
       setEditingFile(null);
       const initialSec = platformData.sections[0]?.id || '';
@@ -969,6 +987,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setFileOrder(currentFilesCount + 1);
       setFileSourceMode('upload');
       setFileLinkedVideoId('');
+      setFileVideoSearch('');
+      setFileVideoFilterSec('all');
     }
     setIsFileModalOpen(true);
   };
@@ -1038,6 +1058,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           fileSize,
           pagesCount: filePagesCount,
           order: fileOrder,
+          linkedVideoId: fileLinkedVideoId || undefined,
         });
         showToast('تم تعديل الملف بنجاح');
       } else {
@@ -1051,6 +1072,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           fileSize,
           pagesCount: filePagesCount,
           order: fileOrder,
+          linkedVideoId: fileLinkedVideoId || undefined,
         });
         showToast('تمت إضافة الملف بنجاح ويظهر الآن للطلاب فوراً!');
       }
@@ -1507,7 +1529,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                لوحة تحكم المسؤول (منصة التميز)
+                لوحة تحكم المسؤول (منصة أقسام رعد)
               </h1>
               <span className="text-xs bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                 متصل وقاعدة البيانات نشطة
@@ -2082,7 +2104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {platformData.files.map((file) => {
               const res = platformData.resources.find((r) => r.id === file.resourceId);
-              const linkedVid = platformData.videos.find((v) => v.linkedFileId === file.id);
+              const linkedVid = platformData.videos.find((v) => v.linkedFileId === file.id || v.id === file.linkedVideoId);
 
               return (
                 <div
@@ -3080,18 +3102,112 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </select>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">ربط بملف / مذكرة</label>
+                <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span>📄 ربط هذا الفيديو بملف / مذكرة</span>
+                      <span className="bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                        {platformData.files.length} ملف متاح
+                      </span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">اختياري</span>
+                  </div>
+
+                  {/* Native Dropdown */}
                   <select
                     value={vidLinkedFileId}
                     onChange={(e) => setVidLinkedFileId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-right text-slate-900 dark:text-white"
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-right text-slate-900 dark:text-slate-100 font-medium"
                   >
-                    <option value="">بدون ملف مرفق</option>
-                    {platformData.files.map((f) => (
-                      <option key={f.id} value={f.id}>📄 {f.title} ({f.fileSize || f.fileType})</option>
-                    ))}
+                    <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold">
+                      بدون ملف مرفق (فيديو فقط)
+                    </option>
+                    {platformData.files.map((f) => {
+                      const res = platformData.resources.find((r) => r.id === f.resourceId);
+                      return (
+                        <option 
+                          key={f.id} 
+                          value={f.id} 
+                          className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 py-1"
+                        >
+                          📄 {f.title} {res ? `(${res.title})` : ''} {f.fileSize ? `[${f.fileSize}]` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
+
+                  {/* Visual Searchable Picker */}
+                  <div className="space-y-1.5 pt-1 border-t border-slate-200 dark:border-slate-700">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={vidFileSearch}
+                        onChange={(e) => setVidFileSearch(e.target.value)}
+                        placeholder="🔍 ابحث عن اسم الملف أو المذكرة المطلوبة..."
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-right text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                      {vidFileSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setVidFileSearch('')}
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-36 overflow-y-auto space-y-1 border border-slate-200 dark:border-slate-700/80 rounded-xl p-1 bg-white dark:bg-slate-900">
+                      {platformData.files
+                        .filter((f) => {
+                          if (!vidFileSearch.trim()) return true;
+                          const q = vidFileSearch.toLowerCase();
+                          const res = platformData.resources.find((r) => r.id === f.resourceId);
+                          return f.title.toLowerCase().includes(q) || (res && res.title.toLowerCase().includes(q));
+                        })
+                        .map((f) => {
+                          const res = platformData.resources.find((r) => r.id === f.resourceId);
+                          const isSelected = vidLinkedFileId === f.id;
+                          return (
+                            <button
+                              key={f.id}
+                              type="button"
+                              onClick={() => setVidLinkedFileId(isSelected ? '' : f.id)}
+                              className={`w-full text-right p-2 rounded-lg text-xs transition-all flex items-center justify-between cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-100 font-bold'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-transparent'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 truncate">
+                                <span>📄</span>
+                                <span className="font-bold truncate">{f.title}</span>
+                                {res && <span className="text-[10px] opacity-75 font-normal">({res.title})</span>}
+                              </div>
+                              <span className="text-[10px] shrink-0 font-mono text-slate-400 mr-2">
+                                {isSelected ? '✓ تم الربط' : f.fileSize || 'ملف PDF'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {vidLinkedFileId && (
+                    <div className="p-2 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-900 dark:text-emerald-300 font-bold flex items-center justify-between mt-1">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span>✓</span>
+                        <span className="truncate">مرتبط بالملف: {platformData.files.find(f => f.id === vidLinkedFileId)?.title || vidLinkedFileId}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setVidLinkedFileId('')}
+                        className="text-rose-600 hover:text-rose-700 text-[10px] font-bold underline cursor-pointer shrink-0 mr-2"
+                      >
+                        إلغاء الربط
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3305,30 +3421,154 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* ربط هذا الملف بفيديو معين */}
-              <div className="space-y-1.5 p-3.5 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl">
-                <label className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center justify-between">
-                  <span>ربط هذا الملف بفيديو / شرح معين 🎬</span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">اختياري - يظهر الملف للطلاب تحت الفيديو مباشرة</span>
-                </label>
+              <div className="space-y-2 p-3.5 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                    <span>🎬 ربط هذا الملف بفيديو / شرح معين</span>
+                    <span className="bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                      {platformData.videos.length} فيديو متاح
+                    </span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">اختياري</span>
+                </div>
+
+                {/* Native Dropdown */}
                 <select
                   value={fileLinkedVideoId}
                   onChange={(e) => setFileLinkedVideoId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 rounded-xl text-xs sm:text-sm text-right text-slate-900 dark:text-white"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs sm:text-sm text-right text-slate-900 dark:text-slate-100 font-medium shadow-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
-                  <option value="">بدون ربط بفيديو</option>
+                  <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold">
+                    بدون ربط بفيديو (ملف مستقل)
+                  </option>
                   {platformData.videos.map((v) => {
+                    const sec = platformData.sections.find((s) => s.id === v.sectionId);
                     const res = platformData.resources.find((r) => r.id === v.resourceId);
                     return (
-                      <option key={v.id} value={v.id}>
-                        🎬 {v.title} ({res?.title || 'شرح'})
+                      <option 
+                        key={v.id} 
+                        value={v.id}
+                        className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 py-1"
+                      >
+                        🎬 {v.title || 'شرح فيديو'} {sec ? `[قسم: ${sec.title}]` : ''} {res ? `[مصدر: ${res.title}]` : ''}
                       </option>
                     );
                   })}
                 </select>
-                {fileLinkedVideoId && (
-                  <p className="text-[11px] text-emerald-800 dark:text-emerald-400 font-bold flex items-center gap-1">
-                    <span>✓</span>
-                    <span>سيتم ربط هذا الملف بفيديو الدرس ويظهر تحته كـ مذكرة قابلة للفتح والتحميل.</span>
+
+                {/* Visual Searchable & Filterable Video Picker */}
+                <div className="space-y-2 pt-1 border-t border-blue-200 dark:border-blue-800/60">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={fileVideoSearch}
+                        onChange={(e) => setFileVideoSearch(e.target.value)}
+                        placeholder="🔍 ابحث عن اسم الفيديو المطلوب ربطه بالملف..."
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-700 rounded-lg text-xs text-right text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      {fileVideoSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setFileVideoSearch('')}
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {[
+                        { id: 'all', label: 'الكل' },
+                        { id: 'sec-quantitative', label: 'كمي' },
+                        { id: 'sec-verbal', label: 'لفظي' },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setFileVideoFilterSec(tab.id)}
+                          className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                            fileVideoFilterSec === tab.id
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="max-h-40 overflow-y-auto space-y-1 border border-blue-200 dark:border-blue-800/80 rounded-xl p-1 bg-white dark:bg-slate-900">
+                    {platformData.videos
+                      .filter((v) => {
+                        if (fileVideoFilterSec !== 'all' && v.sectionId !== fileVideoFilterSec) {
+                          return false;
+                        }
+                        if (!fileVideoSearch.trim()) return true;
+                        const q = fileVideoSearch.toLowerCase();
+                        const sec = platformData.sections.find((s) => s.id === v.sectionId);
+                        const res = platformData.resources.find((r) => r.id === v.resourceId);
+                        return (
+                          (v.title && v.title.toLowerCase().includes(q)) ||
+                          (sec && sec.title.toLowerCase().includes(q)) ||
+                          (res && res.title.toLowerCase().includes(q))
+                        );
+                      })
+                      .map((v) => {
+                        const sec = platformData.sections.find((s) => s.id === v.sectionId);
+                        const res = platformData.resources.find((r) => r.id === v.resourceId);
+                        const isSelected = fileLinkedVideoId === v.id;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setFileLinkedVideoId(isSelected ? '' : v.id)}
+                            className={`w-full text-right p-2 rounded-lg text-xs transition-all flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-100 dark:bg-blue-950/70 border border-blue-400 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-bold'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span>🎬</span>
+                              <span className="font-bold truncate">{v.title || 'شرح فيديو'}</span>
+                              {sec && (
+                                <span className="text-[10px] opacity-75 font-normal bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                                  {sec.code === 'quantitative' ? 'كمي' : sec.code === 'verbal' ? 'لفظي' : sec.title}
+                                </span>
+                              )}
+                              {res && <span className="text-[10px] opacity-75 font-normal">({res.title})</span>}
+                            </div>
+                            <span className="text-[10px] shrink-0 font-mono text-slate-400 mr-2">
+                              {isSelected ? '✓ تم الربط بهذا الفيديو' : 'ربط'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {fileLinkedVideoId ? (
+                  <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-900 dark:text-emerald-300 font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>✓</span>
+                      <span className="truncate">
+                        مرتبط بفيديو الدرس: <strong className="font-black underline">{platformData.videos.find((v) => v.id === fileLinkedVideoId)?.title || 'فيديو محدد'}</strong>
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFileLinkedVideoId('')}
+                      className="text-rose-600 hover:text-rose-700 text-[11px] font-bold underline cursor-pointer shrink-0 mr-2"
+                    >
+                      إلغاء الربط
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    عند اختيار فيديو، سيظهر هذا الملف للطلاب أسفل شاشة الفيديو مباشرة لفتحه وتحميله.
                   </p>
                 )}
               </div>

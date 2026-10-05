@@ -41,6 +41,9 @@ import { safeStorage } from '../utils/safeStorage';
 
 const CURRENT_USER_KEY = 'tamayuz_current_user_v1';
 
+export const MISTAKES_FOLDER_ID = 'folder-mistakes-permanent';
+export const MISTAKES_FOLDER_NAME = 'مجلد أخطائي';
+
 // In-memory student cache for 0ms instant authorization
 let inMemoryCurrentStudent: StudentUser | null = null;
 
@@ -835,6 +838,7 @@ export const apiService = {
       id: file.id || `file-${Date.now()}`,
       sectionId: file.sectionId || '',
       resourceId: file.resourceId || '',
+      linkedVideoId: file.linkedVideoId || undefined,
       title: file.title || '',
       description: file.description || '',
       fileUrl: file.fileUrl || '',
@@ -1269,21 +1273,57 @@ export const apiService = {
     if (!email) return;
     try {
       const cleanEmail = email.trim().toLowerCase();
-      localStorage.setItem(`tamayuz_folders_${cleanEmail}`, JSON.stringify(folders));
+      const withMistakes = this.ensureMistakesFolder(folders);
+      localStorage.setItem(`tamayuz_folders_${cleanEmail}`, JSON.stringify(withMistakes));
     } catch {}
   },
 
   getLocalQuestionFolders(email: string): QuestionFolder[] {
-    if (!email) return [];
+    if (!email) return this.ensureMistakesFolder([]);
     try {
       const cleanEmail = email.trim().toLowerCase();
       const raw = localStorage.getItem(`tamayuz_folders_${cleanEmail}`);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) return this.ensureMistakesFolder(parsed);
       }
     } catch {}
-    return [];
+    return this.ensureMistakesFolder([]);
+  },
+
+  // Ensure every student has the permanent 'مجلد أخطائي' folder at the top of their folders
+  ensureMistakesFolder(folders?: QuestionFolder[]): QuestionFolder[] {
+    const list = Array.isArray(folders) ? [...folders] : [];
+    const mistakesIdx = list.findIndex(
+      (f) => f.id === MISTAKES_FOLDER_ID || f.isMistakesFolder || f.name === MISTAKES_FOLDER_NAME
+    );
+
+    if (mistakesIdx >= 0) {
+      const existing = list[mistakesIdx];
+      const normalized: QuestionFolder = {
+        ...existing,
+        id: MISTAKES_FOLDER_ID,
+        name: MISTAKES_FOLDER_NAME,
+        color: 'rose',
+        isPermanent: true,
+        isMistakesFolder: true,
+        questions: Array.isArray(existing.questions) ? existing.questions : [],
+      };
+      // Always place mistakes folder at index 0 (top)
+      list.splice(mistakesIdx, 1);
+      return [normalized, ...list];
+    }
+
+    const mistakesFolder: QuestionFolder = {
+      id: MISTAKES_FOLDER_ID,
+      name: MISTAKES_FOLDER_NAME,
+      createdAt: new Date().toISOString(),
+      color: 'rose',
+      isPermanent: true,
+      isMistakesFolder: true,
+      questions: [],
+    };
+    return [mistakesFolder, ...list];
   },
 
   // Helper to merge question folders cleanly by id without duplicating questions
@@ -1291,28 +1331,42 @@ export const apiService = {
     const map = new Map<string, QuestionFolder>();
     for (const f of [...(listA || []), ...(listB || [])]) {
       if (!f || !f.id) continue;
-      if (!map.has(f.id)) {
-        map.set(f.id, {
-          id: f.id,
-          name: f.name || 'مجلد بدون اسم',
+      const key = (f.id === MISTAKES_FOLDER_ID || f.isMistakesFolder || f.name === MISTAKES_FOLDER_NAME)
+        ? MISTAKES_FOLDER_ID
+        : f.id;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          name: key === MISTAKES_FOLDER_ID ? MISTAKES_FOLDER_NAME : (f.name || 'مجلد بدون اسم'),
           createdAt: f.createdAt || new Date().toISOString(),
-          color: f.color || 'emerald',
+          color: key === MISTAKES_FOLDER_ID ? 'rose' : (f.color || 'emerald'),
+          isPermanent: key === MISTAKES_FOLDER_ID ? true : f.isPermanent,
+          isMistakesFolder: key === MISTAKES_FOLDER_ID ? true : f.isMistakesFolder,
           questions: Array.isArray(f.questions) ? [...f.questions] : [],
         });
       } else {
-        const existing = map.get(f.id)!;
+        const existing = map.get(key)!;
         const qMap = new Map<string, SavedQuestionItem>();
         for (const q of [...(existing.questions || []), ...(f.questions || [])]) {
-          if (!q || !q.id) continue;
-          if (!qMap.has(q.id)) {
-            qMap.set(q.id, q);
+          if (!q) continue;
+          const qKey = q.id || q.questionText;
+          if (!qMap.has(qKey)) {
+            qMap.set(qKey, q);
           }
         }
         existing.questions = Array.from(qMap.values());
-        if (!existing.color && f.color) existing.color = f.color;
+        if (key === MISTAKES_FOLDER_ID) {
+          existing.name = MISTAKES_FOLDER_NAME;
+          existing.color = 'rose';
+          existing.isPermanent = true;
+          existing.isMistakesFolder = true;
+        } else if (!existing.color && f.color) {
+          existing.color = f.color;
+        }
       }
     }
-    return Array.from(map.values());
+    return this.ensureMistakesFolder(Array.from(map.values()));
   },
 
   // Auth & Student Progress: Synchronized to Firebase Firestore
@@ -1452,6 +1506,7 @@ export const apiService = {
           ...(data.user.progress?.bookmarkedResourceIds || []),
           ...localSavedBookmarks,
         ])),
+        questionFolders: this.ensureMistakesFolder(data.user.progress?.questionFolders || []),
       },
     };
 
@@ -1467,6 +1522,7 @@ export const apiService = {
 
     this.saveCurrentStudent(serverUser);
     this.saveLocalStudentBookmarks(cleanEmail, serverUser.progress.bookmarkedResourceIds);
+    this.saveLocalQuestionFolders(cleanEmail, serverUser.progress.questionFolders);
     return serverUser;
   },
 
@@ -1630,13 +1686,75 @@ export const apiService = {
   async deleteQuestionFolder(folderId: string): Promise<StudentUser | null> {
     const student = this.getCurrentStudent();
     if (!student) return null;
-    const currentFolders = student.progress?.questionFolders || [];
+    if (folderId === MISTAKES_FOLDER_ID) {
+      console.warn('Cannot delete protected mistakes folder');
+      return student;
+    }
+    const currentFolders = this.ensureMistakesFolder(student.progress?.questionFolders);
+    const target = currentFolders.find((f) => f.id === folderId);
+    if (target?.isPermanent || target?.isMistakesFolder || target?.name === MISTAKES_FOLDER_NAME) {
+      console.warn('Attempted to delete protected folder:', folderId);
+      return student;
+    }
     const updatedFolders = currentFolders.filter((f) => f.id !== folderId);
     return await this.recordProgress({
       userId: student.id,
       email: student.email,
       questionFolders: updatedFolders,
     });
+  },
+
+  // Automatically transfers mistaken questions into the student's dedicated 'مجلد أخطائي'
+  async addMistakenQuestions(
+    wrongQuestions: Array<Question & {
+      sourceQuizId?: string;
+      sourceQuizTitle?: string;
+      sourceSectionTitle?: string;
+      userAnswerIndex?: number;
+    }>
+  ): Promise<StudentUser | null> {
+    const student = this.getCurrentStudent();
+    if (!student || !wrongQuestions || wrongQuestions.length === 0) return student;
+
+    const currentFolders = this.ensureMistakesFolder(student.progress?.questionFolders);
+    const mistakesIdx = currentFolders.findIndex((f) => f.id === MISTAKES_FOLDER_ID);
+    if (mistakesIdx === -1) return student;
+
+    const targetFolder = currentFolders[mistakesIdx];
+    const existingQuestions = targetFolder.questions || [];
+
+    const newSavedItems: SavedQuestionItem[] = [];
+    for (const q of wrongQuestions) {
+      const exists = existingQuestions.some(
+        (eq) => (q.id && eq.id === q.id) || (eq.questionText && eq.questionText.trim() === q.questionText?.trim())
+      );
+      if (!exists) {
+        newSavedItems.push({
+          ...q,
+          addedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    if (newSavedItems.length === 0) {
+      return student;
+    }
+
+    const updatedTargetFolder: QuestionFolder = {
+      ...targetFolder,
+      questions: [...newSavedItems, ...existingQuestions],
+    };
+
+    const updatedFolders = [...currentFolders];
+    updatedFolders[mistakesIdx] = updatedTargetFolder;
+
+    const updatedUser = await this.recordProgress({
+      userId: student.id,
+      email: student.email,
+      questionFolders: updatedFolders,
+    });
+
+    return updatedUser;
   },
 
   async addQuestionToFolder(
@@ -1699,6 +1817,9 @@ export const apiService = {
 
   getCurrentStudent(): StudentUser | null {
     if (inMemoryCurrentStudent && (inMemoryCurrentStudent.id || inMemoryCurrentStudent.email)) {
+      if (inMemoryCurrentStudent.progress) {
+        inMemoryCurrentStudent.progress.questionFolders = this.ensureMistakesFolder(inMemoryCurrentStudent.progress.questionFolders);
+      }
       return inMemoryCurrentStudent;
     }
     try {
@@ -1709,6 +1830,9 @@ export const apiService = {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && (parsed.id || parsed.email || parsed.name)) {
+          if (parsed.progress) {
+            parsed.progress.questionFolders = this.ensureMistakesFolder(parsed.progress.questionFolders);
+          }
           inMemoryCurrentStudent = parsed;
           return parsed;
         }
@@ -1720,6 +1844,9 @@ export const apiService = {
   },
 
   saveCurrentStudent(user: StudentUser | null) {
+    if (user && user.progress) {
+      user.progress.questionFolders = this.ensureMistakesFolder(user.progress.questionFolders);
+    }
     inMemoryCurrentStudent = user;
     try {
       if (!user) {
@@ -1970,12 +2097,18 @@ export const apiService = {
 
     const currentSubs = currentSettings.access?.studentSubscriptions || {};
     const incomingSubs = newSettings.access?.studentSubscriptions;
-    const mergedSubs = incomingSubs !== undefined ? { ...currentSubs, ...incomingSubs } : currentSubs;
+    const resolvedSubs = incomingSubs !== undefined ? incomingSubs : currentSubs;
 
     const mergedAccess = newSettings.access ? {
       ...currentSettings.access,
       ...newSettings.access,
-      studentSubscriptions: mergedSubs,
+      studentSubscriptions: resolvedSubs,
+      blockedStudentEmails: newSettings.access.blockedStudentEmails !== undefined
+        ? newSettings.access.blockedStudentEmails
+        : (currentSettings.access?.blockedStudentEmails || []),
+      allowedStudentEmails: newSettings.access.allowedStudentEmails !== undefined
+        ? newSettings.access.allowedStudentEmails
+        : (currentSettings.access?.allowedStudentEmails || []),
       updatedAt: nowIso,
     } : currentSettings.access;
 
@@ -2183,20 +2316,29 @@ export const apiService = {
     return true;
   },
 
-  // Set student subscription duration in days (يدوياً بالأيام)
+  // Set student subscription duration in days (يدوياً بالأيام أو إنهاء فوري)
   async setStudentSubscription(studentEmail: string, days: number): Promise<{ success: boolean; message: string; student?: any }> {
     const target = studentEmail.trim().toLowerCase();
     const numDays = Number(days) || 0;
+    const isExplicitExpiry = numDays === -1;
     const now = new Date();
-    const expiresAt = numDays > 0 ? new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString() : undefined;
-    const startedAt = numDays > 0 ? now.toISOString() : undefined;
+    const expiresAt = isExplicitExpiry 
+      ? new Date(now.getTime() - 60 * 1000).toISOString()
+      : numDays > 0 
+      ? new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000).toISOString() 
+      : undefined;
+    const startedAt = isExplicitExpiry
+      ? new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+      : numDays > 0 
+      ? now.toISOString() 
+      : undefined;
 
     // 1. Sync to Firestore
     try {
-      if (numDays > 0 && expiresAt) {
+      if ((numDays > 0 || isExplicitExpiry) && expiresAt) {
         await setStudentSubscriptionInFirestore(target, {
-          days: numDays,
-          startedAt,
+          days: isExplicitExpiry ? 0 : numDays,
+          startedAt: startedAt || now.toISOString(),
           expiresAt,
         });
       } else {
@@ -2212,7 +2354,7 @@ export const apiService = {
       const res = await fetch('/api/admin/student-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: target, days: numDays }),
+        body: JSON.stringify({ email: target, days: numDays, isExpired: isExplicitExpiry }),
       });
       if (res.ok) {
         serverResult = await res.json();
@@ -2230,9 +2372,9 @@ export const apiService = {
       if (!localCachedData.settings.access.studentSubscriptions) {
         localCachedData.settings.access.studentSubscriptions = {};
       }
-      if (numDays > 0 && expiresAt && startedAt) {
+      if ((numDays > 0 || isExplicitExpiry) && expiresAt && startedAt) {
         localCachedData.settings.access.studentSubscriptions[target] = {
-          days: numDays,
+          days: isExplicitExpiry ? 0 : numDays,
           startedAt,
           expiresAt,
         };

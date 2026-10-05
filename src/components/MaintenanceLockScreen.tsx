@@ -113,7 +113,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   );
 
   const defaultLockMessage = isGuestLocked
-    ? 'مرحباً بك في منصة التميز التعليمية. يرجى تسجيل الدخول أو إنشاء حساب طالب جديد للوصول المباشر إلى الشروحات المرئية والاختبارات التفاعلية وحقائب المذكرات.'
+    ? 'مرحباً بك في منصة أقسام رعد. يرجى تسجيل الدخول أو إنشاء حساب طالب جديد للوصول المباشر إلى الشروحات المرئية والاختبارات التفاعلية وحقائب المذكرات.'
     : isSubscriptionExpiredMode
     ? `عزيزي الطالب (${currentUser?.name || ''})، لقد انتهى اشتراكك في المنصة. يرجى التواصل مع المشرف لتجديد وتفعيل الاشتراك لمتابعة كافة الشروحات والاختبارات.`
     : isIndividuallyBlocked
@@ -199,8 +199,8 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   const rawWhatsapp = accessConfig?.whatsappNumber?.trim() || '';
   const cleanPhone = rawWhatsapp.replace(/[^0-9]/g, '');
   const rawMsg = isSubscriptionExpiredMode
-    ? 'السلام عليكم يا أستاذ، لقد انتهى اشتراكي في منصة التميز وأرغب في تجديد وتفعيل الاشتراك'
-    : (accessConfig?.whatsappMessage?.trim() || 'السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة التميز التعليمية');
+    ? 'السلام عليكم يا أستاذ، لقد انتهى اشتراكي في منصة أقسام رعد وأرغب في تجديد وتفعيل الاشتراك'
+    : (accessConfig?.whatsappMessage?.trim() || 'السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة أقسام رعد');
   const encodedMsg = encodeURIComponent(
     currentUser 
       ? `${rawMsg}\n(الاسم: ${currentUser.name} - الإيميل: ${currentUser.email})`
@@ -224,7 +224,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
     return (
       <div 
         id="platform-guest-login-portal"
-        className="min-h-[88vh] bg-slate-950 text-white flex items-center justify-center p-3.5 sm:p-6 lg:p-8 selection:bg-emerald-500 selection:text-white relative overflow-hidden"
+        className="min-h-screen w-full bg-slate-950 text-white flex items-center justify-center p-3.5 sm:p-6 lg:p-8 selection:bg-emerald-500 selection:text-white relative overflow-hidden"
         dir="rtl"
       >
         {/* Multi-point Ambient Luxury Lights */}
@@ -243,14 +243,16 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
               <span className="text-[11px] font-mono text-emerald-400">الإصدار 2026</span>
             </div>
 
-            <div className="flex items-center justify-center gap-3">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-xl shadow-emerald-500/20">
-                <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-emerald-400">
-                  <GraduationCap className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.2]" />
-                </div>
+            <div className="flex items-center justify-center gap-3.5">
+              <div className="relative group shrink-0">
+                <img
+                  src="/raed-logo.png"
+                  alt="شعار منصة أقسام رعد"
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-contain shadow-2xl shadow-emerald-500/30 border border-slate-700 bg-slate-900 p-1"
+                />
               </div>
               <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
-                منصة <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">التميز</span> التعليمية
+                منصة <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-200 bg-clip-text text-transparent">أقسام رعد</span>
               </h1>
             </div>
 
@@ -303,6 +305,14 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
                     ? 'أدخل بريدك الإلكتروني وكلمة المرور للوصول الفوري لكافة أقسام المنصة' 
                     : 'سجل بياناتك الآن للبدء في حل الاختبارات ومشاهدة الشروحات المسجلة'}
                 </p>
+                <div className="mt-2 p-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-[11px] text-emerald-300 font-bold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span>
+                    {authTab === 'login'
+                      ? 'تنبيه: يلزم كتابة نفس البريد الإلكتروني وكلمة المرور المسجلين أثناء إنشاء الحساب'
+                      : 'احفظ الإيميل والباسورد لتسجيل الدخول بهما دائماً'}
+                  </span>
+                </div>
               </div>
 
               {/* Error Message */}
@@ -459,7 +469,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
                   <Sparkles className="w-3.5 h-3.5 fill-current" />
-                  <span>مميزات حسابك في منصة التميز</span>
+                  <span>مميزات حسابك في منصة أقسام رعد</span>
                 </div>
 
                 <h3 className="text-base sm:text-lg font-black text-white leading-tight">
@@ -554,6 +564,18 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
             isSubscriptionMode ? 'bg-emerald-600/20' : 'bg-amber-600/20'
           }`} 
         />
+
+        {/* Platform Brand */}
+        <div className="flex flex-col items-center justify-center gap-2 mb-4">
+          <img
+            src="/raed-logo.png"
+            alt="شعار منصة أقسام رعد"
+            className="w-16 h-16 rounded-2xl object-contain bg-white border border-slate-700 p-1 shadow-lg"
+          />
+          <h2 className="text-xl sm:text-2xl font-black text-white">
+            منصة <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-200 bg-clip-text text-transparent">أقسام رعد</span>
+          </h2>
+        </div>
 
         {/* Top Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold border mb-5 shadow-xs bg-slate-800/80 border-slate-700">

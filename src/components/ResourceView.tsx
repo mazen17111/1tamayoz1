@@ -452,7 +452,7 @@ export const ResourceView: React.FC<ResourceViewProps> = ({
                             const isCompleted = currentUser?.progress?.completedVideoIds?.includes(video.id);
                             // Find if this video has a linked quiz or linked file!
                             const linkedQuiz = quizzes.find((q) => q.id === video.linkedQuizId || q.linkedVideoId === video.id);
-                            const linkedFile = files.find((f) => f.id === video.linkedFileId);
+                            const linkedFile = files.find((f) => f.id === video.linkedFileId || f.linkedVideoId === video.id);
 
                             return (
                               <div

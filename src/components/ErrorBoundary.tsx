@@ -53,7 +53,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </div>
 
             <h2 className="text-xl font-bold text-white mb-2">
-              منصة التميز التعليمية
+              منصة أقسام رعد
             </h2>
             <p className="text-slate-300 text-sm mb-6 leading-relaxed">
               حدث خطأ بسيط أثناء التحميل في هذا المتصفح. يمكنك إعادة المحاولة وسيعمل كل شيء بسلاسة.

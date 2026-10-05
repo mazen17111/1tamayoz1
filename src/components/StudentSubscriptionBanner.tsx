@@ -73,7 +73,7 @@ export const StudentSubscriptionBanner: React.FC<StudentSubscriptionBannerProps>
   // Contact support URL if available
   const whatsappNumber = accessConfig?.whatsappNumber || '966500000000';
   const whatsappMsg = encodeURIComponent(
-    `السلام عليكم، أنا الطالب ${currentUser.name} (${currentUser.email})، أود تجديد وتمديد اشتراكي في منصة التميز التعليمية.`
+    `السلام عليكم، أنا الطالب ${currentUser.name} (${currentUser.email})، أود تجديد وتمديد اشتراكي في منصة أقسام رعد.`
   );
   const whatsappUrl = `https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}?text=${whatsappMsg}`;
 

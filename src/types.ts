@@ -46,6 +46,7 @@ export interface FileItem {
   id: string;
   resourceId: string;
   sectionId: string;
+  linkedVideoId?: string; // معرف الفيديو أو الشرح المرتبط بهذا الملف
   title: string;
   description: string;
   fileUrl: string;
@@ -121,6 +122,7 @@ export interface SavedQuestionItem extends Question {
   sourceQuizId?: string;
   sourceQuizTitle?: string;
   sourceSectionTitle?: string;
+  userAnswerIndex?: number;
   addedAt: string;
 }
 
@@ -129,6 +131,8 @@ export interface QuestionFolder {
   name: string;
   createdAt: string;
   color?: string;
+  isPermanent?: boolean;
+  isMistakesFolder?: boolean;
   questions: SavedQuestionItem[];
 }
 

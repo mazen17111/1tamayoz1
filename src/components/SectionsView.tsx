@@ -74,18 +74,18 @@ export const SectionsView: React.FC<SectionsViewProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 text-xs sm:text-sm px-3 sm:px-3.5 py-1.5 rounded-full border border-emerald-400/30 font-semibold backdrop-blur-xs">
               <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
-              <span className="truncate">منصة التميز التعليمية للقدرات والاختبارات التفاعلية</span>
+              <span className="truncate">منصة أقسام رعد للقدرات والاختبارات التفاعلية</span>
             </div>
 
             {/* Platform Badge beside platform banner */}
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-white/15">
-              <GraduationCap className="w-4 h-4 text-emerald-300" />
-              <span className="text-xs sm:text-sm font-bold text-white tracking-wide">منصة التميز التعليمية</span>
+              <img src="/raed-logo.png" alt="شعار" className="w-4 h-4 rounded-sm object-contain" />
+              <span className="text-xs sm:text-sm font-bold text-white tracking-wide">منصة أقسام رعد</span>
             </div>
           </div>
 
           <h1 className="text-xl sm:text-4xl font-extrabold leading-snug tracking-tight">
-            {currentUser ? `أهلاً بك، يا ${currentUser.name}` : 'مرحبًا بك في منصة التميز التعليمية'}
+            {currentUser ? `أهلاً بك، يا ${currentUser.name}` : 'مرحبًا بك في منصة أقسام رعد'}
           </h1>
 
           <p className="text-slate-300 text-xs sm:text-base leading-relaxed max-w-2xl">

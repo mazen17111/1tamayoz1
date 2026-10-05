@@ -590,6 +590,30 @@ export default function App() {
     if (updated) {
       setCurrentUser(updated);
     }
+
+    // Auto-record mistaken questions to student's dedicated "مجلد أخطائي"
+    if (attemptData.questionsDetails && attemptData.questionsDetails.some((qd) => !qd.isCorrect)) {
+      const wrongList = attemptData.questionsDetails
+        .filter((qd) => !qd.isCorrect)
+        .map((qd) => ({
+          id: qd.questionId,
+          questionText: qd.questionText,
+          options: qd.options,
+          correctOptionIndex: qd.correctAnswerIndex,
+          explanation: qd.explanation,
+          imageUrl: qd.imageUrl,
+          sourceQuizId: attemptData.quizId,
+          sourceQuizTitle: attemptData.quizTitle,
+          sourceSectionTitle: attemptData.sectionTitle,
+          userAnswerIndex: qd.userAnswerIndex,
+        }));
+      try {
+        const u = await apiService.addMistakenQuestions(wrongList);
+        if (u) setCurrentUser(u);
+      } catch (e) {
+        console.warn('Error auto-syncing mistaken questions:', e);
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -615,9 +639,11 @@ export default function App() {
           ...(user.progress?.bookmarkedResourceIds || []),
           ...localBookmarks,
         ])),
-        questionFolders: apiService.mergeQuestionFolders(
-          user.progress?.questionFolders,
-          localFolders
+        questionFolders: apiService.ensureMistakesFolder(
+          apiService.mergeQuestionFolders(
+            user.progress?.questionFolders,
+            localFolders
+          )
         ),
       },
     };
@@ -702,36 +728,40 @@ export default function App() {
       {/* In-App Browser Helper (Telegram, WhatsApp, WebViews) */}
       <InAppBrowserBanner onShowToast={showToast} />
 
-      {/* Top Navigation */}
-      <Navbar
-        currentUser={currentUser ? {
-          ...currentUser,
-          subscriptionDays: effectiveSubscriptionDays,
-          subscriptionStartedAt: effectiveSubscriptionStartedAt,
-          subscriptionExpiresAt: effectiveSubscriptionExpiresAt,
-        } : null}
-        isAdminOpen={isAdminOpen}
-        activeSectionTitle={activeSection?.title}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onOpenAuth={() => {
-          setAuthModalInitialMode('login');
-          setIsAuthModalOpen(true);
-        }}
-        onOpenProfile={() => setIsProfileModalOpen(true)}
-        onOpenFolders={() => setIsFoldersModalOpen(true)}
-        onOpenStats={handleOpenStats}
-        onOpenAdmin={handleOpenAdmin}
-        onGoHome={() => {
-          setIsAdminOpen(false);
-          setSelectedSectionId(null);
-        }}
-        onLogout={handleLogout}
-        liveStream={platformData.liveStream}
-      />
+      {/* Top Navigation - Only visible when user is authenticated, not in lock screen, and not in auth modal */}
+      {(!isGuestLocked || isAdminOpen) && !showLockScreen && !isAuthModalOpen && (
+        <Navbar
+          currentUser={currentUser ? {
+            ...currentUser,
+            subscriptionDays: effectiveSubscriptionDays,
+            subscriptionStartedAt: effectiveSubscriptionStartedAt,
+            subscriptionExpiresAt: effectiveSubscriptionExpiresAt,
+          } : null}
+          isAdminOpen={isAdminOpen}
+          activeSectionTitle={activeSection?.title}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onOpenAuth={() => {
+            setAuthModalInitialMode('login');
+            setIsAuthModalOpen(true);
+          }}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
+          onOpenFolders={() => setIsFoldersModalOpen(true)}
+          onOpenStats={handleOpenStats}
+          onOpenAdmin={handleOpenAdmin}
+          onGoHome={() => {
+            setIsAdminOpen(false);
+            setSelectedSectionId(null);
+          }}
+          onLogout={handleLogout}
+          liveStream={platformData.liveStream}
+        />
+      )}
 
-      {/* Global Announcement Alert Bar */}
-      <AnnouncementBanner announcement={platformData.settings?.announcement} />
+      {/* Global Announcement Alert Bar - Only visible inside platform when logged in and active */}
+      {(!isGuestLocked || isAdminOpen) && !showLockScreen && !isAuthModalOpen && (
+        <AnnouncementBanner announcement={platformData.settings?.announcement} />
+      )}
 
       {/* Student Subscription Bar with Days Countdown & Advancing Progress Bar */}
       {!isAdminOpen && !showLockScreen && currentUser && currentUser.role !== 'admin' && effectiveSubscriptionExpiresAt && (
@@ -767,7 +797,7 @@ export default function App() {
           }}
           onLoginSuccess={(user) => {
             handleAuthSuccess(user);
-            showToast(`أهلاً بك يا ${user.name} في منصة التميز التعليمية`);
+            showToast(`أهلاً بك يا ${user.name} في منصة أقسام رعد`);
           }}
           onLogout={handleLogout}
           onRefresh={loadData}
@@ -858,36 +888,38 @@ export default function App() {
         </main>
       )}
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-6 sm:py-8 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600/10 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <GraduationCap className="w-4 h-4" />
+      {/* Footer - Only visible when inside platform */}
+      {(!isGuestLocked || isAdminOpen) && (
+        <footer className="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-6 sm:py-8 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700 bg-white">
+                <img src="/raed-logo.png" alt="شعار" className="w-full h-full object-contain" />
+              </div>
+              <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">منصة أقسام رعد</span>
+              <span className="text-slate-400 dark:text-slate-500">© {new Date().getFullYear()}</span>
             </div>
-            <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">منصة التميز التعليمية</span>
-            <span className="text-slate-400 dark:text-slate-500">© {new Date().getFullYear()}</span>
-          </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400">
-            <span>نظام تعليمي ديناميكي متطور</span>
-            <span>•</span>
-            <span>حفظ ومزامنة فورية للبيانات</span>
-            <span>•</span>
-            <span>تصحيح ذاتي فوري للاختبارات</span>
-          </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400">
+              <span>نظام تعليمي ديناميكي متطور</span>
+              <span>•</span>
+              <span>حفظ ومزامنة فورية للبيانات</span>
+              <span>•</span>
+              <span>تصحيح ذاتي فوري للاختبارات</span>
+            </div>
 
-          {/* الجملة السرية: جميع محتويات المنصة محفوظة لمنصة تميز (الضغط مرتين يفتح قسم التحكم) */}
-          <span
-            id="secret-admin-trigger"
-            onClick={handleAdminSecretDoubleTrigger}
-            onDoubleClick={handleOpenAdmin}
-            className="select-none text-slate-500 dark:text-slate-400 text-xs font-semibold cursor-default transition-colors hover:text-slate-600 dark:hover:text-slate-300 py-1"
-          >
-            جميع محتويات المنصة محفوظة لمنصة تميز
-          </span>
-        </div>
-      </footer>
+            {/* الجملة السرية: جميع محتويات المنصة محفوظة لمنصة اقسام رعد (الضغط مرتين يفتح قسم التحكم) */}
+            <span
+              id="secret-admin-trigger"
+              onClick={handleAdminSecretDoubleTrigger}
+              onDoubleClick={handleOpenAdmin}
+              className="select-none text-slate-500 dark:text-slate-400 text-xs font-semibold cursor-default transition-colors hover:text-slate-600 dark:hover:text-slate-300 py-1"
+            >
+              جميع محتويات المنصة محفوظة لمنصة اقسام رعد
+            </span>
+          </div>
+        </footer>
+      )}
 
       {/* MODALS (Lazy Loaded with Suspense) */}
       <Suspense fallback={null}>
@@ -917,7 +949,7 @@ export default function App() {
               (q) => q.id === activeVideo.linkedQuizId || q.linkedVideoId === activeVideo.id
             )}
             linkedFile={platformData.files.find(
-              (f) => f.id === activeVideo.linkedFileId
+              (f) => f.id === activeVideo.linkedFileId || f.linkedVideoId === activeVideo.id
             )}
             isCompleted={currentUser?.progress?.completedVideoIds?.includes(activeVideo.id) || false}
             onClose={() => setActiveVideo(null)}

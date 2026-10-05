@@ -83,20 +83,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setIsLoading(true);
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
     try {
       if (tab === 'login') {
-        if (!email.trim() || !password) {
+        if (!cleanEmail || !cleanPassword) {
           setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
           setIsLoading(false);
           return;
         }
 
-        const user = await apiService.login(email.trim(), password);
+        const user = await apiService.login(cleanEmail, cleanPassword);
 
         // Save or clear remember me preference
         try {
           if (rememberMe) {
-            safeStorage.setItem('tamayuz_remembered_student_email', email.trim());
+            safeStorage.setItem('tamayuz_remembered_student_email', cleanEmail);
           } else {
             safeStorage.removeItem('tamayuz_remembered_student_email');
           }
@@ -110,22 +113,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setIsLoading(false);
           return;
         }
-        if (!email.trim() || !email.includes('@')) {
+        if (!cleanEmail || !cleanEmail.includes('@')) {
           setError('يرجى إدخال بريد إلكتروني صحيح');
           setIsLoading(false);
           return;
         }
-        if (password.length < 6) {
+        if (cleanPassword.length < 6) {
           setError('كلمة المرور يجب أن لا تقل عن 6 خانات أو أحرف');
           setIsLoading(false);
           return;
         }
 
-        const user = await apiService.register(name.trim(), email.trim(), password);
+        const user = await apiService.register(name.trim(), cleanEmail, cleanPassword);
         
         try {
           if (rememberMe) {
-            safeStorage.setItem('tamayuz_remembered_student_email', email.trim());
+            safeStorage.setItem('tamayuz_remembered_student_email', cleanEmail);
           }
         } catch {}
 
@@ -133,7 +136,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      setError(err.message || 'حدث خطأ أثناء المحاولة، يرجى التحقق من صحة البيانات والمحاولة مجدداً.');
+      const errMsg = err.message || 'حدث خطأ أثناء المحاولة، يرجى التحقق من صحة البيانات والمحاولة مجدداً.';
+      setError(errMsg);
+      if (errMsg.includes('مسجل بالفعل') || errMsg.includes('تسجيل الدخول')) {
+        setTimeout(() => {
+          setTab('login');
+        }, 1200);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -141,18 +150,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const whatsappSupportUrl = `https://wa.me/?text=${encodeURIComponent(
     tab === 'login'
-      ? 'السلام عليكم، أحتاج مساعدة في استعادة بيانات تسجيل الدخول إلى منصة التميز التعليمية.'
-      : 'السلام عليكم، أود تفعيل حسابي في منصة التميز التعليمية.'
+      ? 'السلام عليكم، أحتاج مساعدة في استعادة بيانات تسجيل الدخول إلى منصة أقسام رعد.'
+      : 'السلام عليكم، أود تفعيل حسابي في منصة أقسام رعد.'
   )}`;
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 text-white p-3.5 sm:p-6 overflow-y-auto"
+      dir="rtl"
     >
       {/* Outer ambient glow */}
       <div className="relative w-full max-w-lg my-auto">
@@ -160,69 +165,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* Modal Card */}
-        <div className="relative bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.8),0_0_50px_rgba(5,150,105,0.15)] border border-emerald-500/25 overflow-hidden text-right transition-all">
+        <div className="relative bg-slate-900 border border-emerald-500/30 text-white rounded-3xl shadow-[0_25px_80px_-15px_rgba(0,0,0,0.9),0_0_50px_rgba(5,150,105,0.2)] overflow-hidden text-right transition-all">
           
           {/* Top Decorative Header Sheen */}
           <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600" />
 
-          {/* Header Bar */}
-          <div className="relative p-6 sm:p-7 pb-4 border-b border-slate-800/80 bg-slate-950/40">
-            {/* Close Button */}
+          {/* Top Brand Banner */}
+          <div className="p-6 sm:p-7 pb-2 text-center space-y-3 relative">
             <button
               onClick={onClose}
               aria-label="إغلاق"
-              className="absolute top-5 left-5 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group"
+              className="absolute left-4 top-4 p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-all cursor-pointer group"
             >
               <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
             </button>
 
-            {/* Emblem & Title */}
-            <div className="flex items-center gap-3.5 pr-1">
-              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-0.5 shadow-lg shadow-emerald-600/30 shrink-0">
-                <div className="w-full h-full bg-slate-950/70 rounded-[14px] flex items-center justify-center text-emerald-400">
-                  <GraduationCap className="w-6 h-6 stroke-[2.2]" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-slate-950 shadow-xs">
-                  <Sparkles className="w-2.5 h-2.5 fill-current" />
-                </div>
+            <div className="flex flex-col items-center justify-center gap-2.5">
+              <div className="p-1 rounded-2xl bg-white border border-slate-700 shadow-xl shrink-0">
+                <img
+                  src="/raed-logo.png"
+                  alt="شعار منصة أقسام رعد الجديد"
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-contain"
+                />
               </div>
-
               <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                    منصة التميز التعليمية
-                  </h2>
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    بوابة الطلاب
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 font-medium">
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  منصة <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-200 bg-clip-text text-transparent">أقسام رعد</span>
+                </h1>
+                <p className="text-xs text-slate-400 mt-1 font-medium">
                   {tab === 'login' 
-                    ? 'تسجيل الدخول الآمن للوصول إلى كافة الدروس والاختبارات' 
-                    : 'إنشاء حساب طالب جديد والبدء في رحلة التميز الأكاديمي'}
+                    ? 'تسجيل الدخول إلى حساب الطالب للوصول للشروحات والاختبارات' 
+                    : 'إنشاء حساب طالب جديد والبدء في حل الاختبارات والمذاكرة'}
                 </p>
               </div>
             </div>
+
+            {/* Instruction Callout */}
+            <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-[11px] sm:text-xs text-emerald-300 font-bold flex items-center justify-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span>
+                {tab === 'login'
+                  ? 'تنبيه: يلزم كتابة نفس البريد الإلكتروني وكلمة المرور المسجلين أثناء إنشاء الحساب'
+                  : 'احفظ نفس الإيميل وكلمة المرور لتسجيل الدخول بهما دائماً دون أخطاء'}
+              </span>
+            </div>
           </div>
 
-          <div className="p-6 sm:p-7 space-y-6">
-            
-            {/* Prompt Banner if user was blocked by a video or quiz */}
-            {promptMessage && (
-              <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-teal-950/60 border border-emerald-500/40 text-xs text-emerald-200 flex items-start gap-3 shadow-inner">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div className="leading-relaxed">
-                  <span className="font-extrabold text-emerald-300 block mb-1 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    المحتوى محمي للطلاب المعتمدين:
-                  </span>
-                  <span className="text-emerald-100/90">{promptMessage}</span>
-                </div>
-              </div>
-            )}
+          <div className="p-6 sm:p-7 pt-2 space-y-5">
 
             {/* Luxury Segmented Tabs */}
             <div className="relative p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80 grid grid-cols-2 shadow-inner">

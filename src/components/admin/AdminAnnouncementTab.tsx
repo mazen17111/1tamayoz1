@@ -26,7 +26,7 @@ export const AdminAnnouncementTab: React.FC<AdminAnnouncementTabProps> = ({
 }) => {
   const [config, setConfig] = useState<PlatformAnnouncement>(() => ({
     isEnabled: Boolean(announcement?.isEnabled),
-    message: announcement?.message || (announcement as any)?.text || 'مرحباً بكم في منصة التميز التعليمية! تمنياتنا لكم بعام دراسي مليء بالنجاح والتفوق.',
+    message: announcement?.message || (announcement as any)?.text || 'مرحباً بكم في منصة أقسام رعد! تمنياتنا لكم بعام دراسي مليء بالنجاح والتفوق.',
     type: announcement?.type || 'info',
     isDismissible: announcement?.isDismissible !== false,
   }));

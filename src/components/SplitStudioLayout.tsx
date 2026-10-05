@@ -133,8 +133,8 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
     ? quizzes.find((q) => q.id === displayedVideo.linkedQuizId || q.linkedVideoId === displayedVideo.id)
     : null;
 
-  const linkedFile = displayedVideo && displayedVideo.linkedFileId
-    ? files.find((f) => f.id === displayedVideo.linkedFileId)
+  const linkedFile = displayedVideo
+    ? files.find((f) => f.id === displayedVideo.linkedFileId || f.linkedVideoId === displayedVideo.id)
     : null;
 
   const studioVideoRef = useRef<HTMLVideoElement | null>(null);
