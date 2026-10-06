@@ -1842,7 +1842,7 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     const isFirestoreValid = firestorePasswordHash ? verifyPassword(password, firestorePasswordHash) : false;
 
     if (!isLocalValid && !isFirestoreValid) {
-      return res.status(401).json({ error: 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب' });
+      return res.status(401).json({ error: 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أثناء إنشاء الحساب' });
     }
 
     // If firestorePasswordHash was the matching one, update local cache
@@ -1873,18 +1873,38 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
 
     if (existingIndex !== -1) {
       const existing = usersData.users[existingIndex];
-      // If already registered and has password
-      if (existing.passwordHash) {
-        return res.status(409).json({ 
-          error: 'هذا البريد الإلكتروني مسجل بالفعل، يرجى تسجيل الدخول باستخدام كلمة المرور الخاصة بك' 
-        });
-      }
-      // If student account existed without password, allow setting initial password now!
+      // Update account with student's latest chosen password and name seamlessly
       existing.name = cleanName || existing.name;
       existing.passwordHash = hashPassword(password);
+      existing.role = 'student';
+      if (!existing.progress) {
+        existing.progress = {
+          completedVideoIds: [],
+          completedQuizAttempts: [],
+          bookmarkedResourceIds: [],
+          questionFolders: [],
+        };
+      }
+      if (!existing.progress.questionFolders) {
+        existing.progress.questionFolders = [];
+      }
+      const hasMistakes = existing.progress.questionFolders.some(
+        (f) => f.id === 'folder-mistakes-permanent' || f.name === 'مجلد أخطائي'
+      );
+      if (!hasMistakes) {
+        existing.progress.questionFolders.unshift({
+          id: 'folder-mistakes-permanent',
+          name: 'مجلد أخطائي',
+          createdAt: new Date().toISOString(),
+          color: 'rose',
+          isPermanent: true,
+          isMistakesFolder: true,
+          questions: [],
+        });
+      }
       saveUsers(usersData);
       const { passwordHash, ...safeUser } = existing;
-      return res.json({ user: safeUser, passwordHash });
+      return res.json({ user: safeUser, passwordHash, success: true });
     }
 
     const newUser: StudentUser & { passwordHash: string } = {
@@ -1914,7 +1934,7 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
     usersData.users.push(newUser);
     saveUsers(usersData);
     const { passwordHash, ...safeUser } = newUser;
-    res.json({ user: safeUser, passwordHash });
+    res.json({ user: safeUser, passwordHash, success: true });
   });
 
   // Student progress update (supports /api/student/progress and /api/user/progress)
@@ -1947,13 +1967,12 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
 
     if (userIndex === -1) {
       if (targetEmail) {
-        // Auto-create or register student record so bookmarks & progress are never lost
-        const newUser: StudentUser & { passwordHash: string } = {
+        // Auto-create student record so bookmarks & progress are never lost, without locking them with a dummy password
+        const newUser: StudentUser & { passwordHash?: string } = {
           id: userId || `usr-${Date.now()}`,
           name: req.body.studentName || targetEmail.split('@')[0],
           email: targetEmail,
           role: 'student',
-          passwordHash: hashPassword('123456'),
           createdAt: new Date().toISOString(),
           progress: {
             completedVideoIds: [],

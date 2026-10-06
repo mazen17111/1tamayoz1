@@ -6,6 +6,8 @@ import {
   getDoc, 
   getDocFromServer,
   setDoc, 
+  updateDoc,
+  deleteField,
   collection, 
   getDocs, 
   deleteDoc, 
@@ -498,6 +500,32 @@ export async function setStudentBlockInFirestore(email: string, isIndividuallyBl
       await setDoc(d.ref, { isIndividuallyBlocked }, { merge: true });
     }
   }
+
+  // Also sync blockedStudentEmails in main platform doc
+  try {
+    const mainDocRef = doc(db, COLLECTIONS.PLATFORM_DATA, MAIN_DATA_DOC_ID);
+    const snap = await getDoc(mainDocRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const currentBlocked: string[] = Array.isArray(data?.settings?.access?.blockedStudentEmails)
+        ? data.settings.access.blockedStudentEmails
+        : [];
+      const updatedBlocked = isIndividuallyBlocked
+        ? Array.from(new Set([...currentBlocked.map((e: string) => e.toLowerCase()), cleanEmail]))
+        : currentBlocked.filter((e: string) => e.toLowerCase() !== cleanEmail);
+      
+      await setDoc(mainDocRef, {
+        settings: {
+          access: {
+            blockedStudentEmails: updatedBlocked,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      }, { merge: true });
+    }
+  } catch (e) {
+    console.warn('Could not sync student block to main firestore doc:', e);
+  }
 }
 
 export async function setStudentSubscriptionInFirestore(
@@ -562,9 +590,23 @@ export async function setStudentSubscriptionInFirestore(
             studentSubscriptions: {
               [cleanEmail]: subscription,
             },
+            updatedAt: new Date().toISOString(),
           },
         },
       }, { merge: true });
+    } else {
+      // Clear subscription from main doc if cancelled
+      const snap = await getDoc(mainDocRef);
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d?.settings?.access?.studentSubscriptions && d.settings.access.studentSubscriptions[cleanEmail]) {
+          delete d.settings.access.studentSubscriptions[cleanEmail];
+          if (d.settings?.access) {
+            d.settings.access.updatedAt = new Date().toISOString();
+          }
+          await setDoc(mainDocRef, d);
+        }
+      }
     }
   } catch (e) {
     console.warn('Could not sync student subscription to main firestore doc:', e);

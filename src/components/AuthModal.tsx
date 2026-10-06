@@ -51,6 +51,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [tab, setTab] = useState<'login' | 'register'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -123,6 +124,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setIsLoading(false);
           return;
         }
+        if (cleanPassword !== confirmPassword.trim()) {
+          setError('كلمتا المرور غير متطابقتين، يرجى كتابة نفس كلمة المرور في خانة التأكيد');
+          setIsLoading(false);
+          return;
+        }
 
         const user = await apiService.register(name.trim(), cleanEmail, cleanPassword);
         
@@ -138,11 +144,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: any) {
       const errMsg = err.message || 'حدث خطأ أثناء المحاولة، يرجى التحقق من صحة البيانات والمحاولة مجدداً.';
       setError(errMsg);
-      if (errMsg.includes('مسجل بالفعل') || errMsg.includes('تسجيل الدخول')) {
-        setTimeout(() => {
-          setTab('login');
-        }, 1200);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -243,9 +244,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             {/* Error Banner */}
             {error && (
-              <div className="p-3.5 bg-rose-950/40 border border-rose-500/40 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
+              <div className="p-3.5 bg-rose-950/50 border border-rose-500/50 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{error}</span>
+                <div className="space-y-1 flex-1">
+                  <span className="leading-relaxed block">{error}</span>
+                  {tab === 'login' && error.includes('كلمة المرور') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('register');
+                        setError(null);
+                      }}
+                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline cursor-pointer mt-1 inline-block"
+                    >
+                      💡 هل نسيت كلمة المرور؟ اضغط هنا لتعيين كلمة مرور جديدة وبدء التعلم فوراً
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -338,6 +353,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </p>
                 )}
               </div>
+
+              {/* Confirm Password (Registration Only) */}
+              {tab === 'register' && (
+                <div className="space-y-1.5 text-right">
+                  <label className="text-xs font-bold text-slate-300 block">
+                    تأكيد كلمة المرور
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      dir="ltr"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="أعد كتابة نفس كلمة المرور للتأكيد..."
+                      className="w-full pr-11 pl-4 py-3 bg-slate-950/70 border border-slate-700/70 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-left transition-all shadow-inner"
+                    />
+                    <Lock className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+              )}
 
               {/* Remember Me Checkbox */}
               <div className="flex items-center justify-between pt-1">

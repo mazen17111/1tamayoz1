@@ -333,42 +333,20 @@ export const apiService = {
     const firestoreAccess = firestoreData?.settings?.access;
     const cachedAccess = localCachedData?.settings?.access;
 
-    // Combine allowed emails from all sources so approved students never get locked out unexpectedly
-    const allAllowedEmails = Array.from(new Set([
-      ...(Array.isArray(serverAccess?.allowedStudentEmails) ? serverAccess.allowedStudentEmails : []),
-      ...(Array.isArray(firestoreAccess?.allowedStudentEmails) ? firestoreAccess.allowedStudentEmails : []),
-      ...(Array.isArray(cachedAccess?.allowedStudentEmails) ? cachedAccess.allowedStudentEmails : []),
-    ])).map(e => e.trim().toLowerCase());
+    // Resolve access settings by most recent updatedAt timestamp across all tiers so admin changes are 100% authoritative and permanent
+    const candidateAccesses = [
+      cachedAccess,
+      serverAccess,
+      firestoreAccess,
+    ].filter(Boolean) as PlatformAccessConfig[];
 
-    // Combine blocked emails from all sources
-    const allBlockedEmails = Array.from(new Set([
-      ...(Array.isArray(serverAccess?.blockedStudentEmails) ? serverAccess.blockedStudentEmails : []),
-      ...(Array.isArray(firestoreAccess?.blockedStudentEmails) ? firestoreAccess.blockedStudentEmails : []),
-      ...(Array.isArray(cachedAccess?.blockedStudentEmails) ? cachedAccess.blockedStudentEmails : []),
-    ])).map(e => e.trim().toLowerCase());
-
-    // Deep merge studentSubscriptions from all sources so every student's days are strictly preserved without interference
-    const allStudentSubscriptions: Record<string, { days: number; startedAt: string; expiresAt: string; studentName?: string }> = {};
-    const subSources = [
-      cachedAccess?.studentSubscriptions,
-      firestoreAccess?.studentSubscriptions,
-      serverAccess?.studentSubscriptions,
-    ];
-    for (const src of subSources) {
-      if (src && typeof src === 'object') {
-        for (const [em, sub] of Object.entries(src)) {
-          if (em && sub && (sub as any).expiresAt) {
-            const cleanEm = em.trim().toLowerCase();
-            allStudentSubscriptions[cleanEm] = {
-              ...(allStudentSubscriptions[cleanEm] || {}),
-              ...(sub as any),
-            };
-          }
-        }
-      }
-    }
-
-    const baseAccess = serverAccess || firestoreAccess || cachedAccess || defaultPlatformSettings.access;
+    const resolvedAccess: PlatformAccessConfig = candidateAccesses.length > 0
+      ? candidateAccesses.reduce((prev, curr) => {
+          const prevTime = prev?.updatedAt ? new Date(prev.updatedAt).getTime() : 0;
+          const currTime = curr?.updatedAt ? new Date(curr.updatedAt).getTime() : 0;
+          return currTime >= prevTime ? curr : prev;
+        })
+      : (serverAccess || firestoreAccess || cachedAccess || defaultPlatformSettings.access);
 
     // Theme resolution: pick the latest saved theme by timestamp across all sources
     const candidateThemes = [
@@ -427,10 +405,10 @@ export const apiService = {
       },
       access: {
         ...defaultPlatformSettings.access,
-        ...baseAccess,
-        allowedStudentEmails: allAllowedEmails,
-        blockedStudentEmails: allBlockedEmails,
-        studentSubscriptions: allStudentSubscriptions,
+        ...resolvedAccess,
+        allowedStudentEmails: Array.isArray(resolvedAccess.allowedStudentEmails) ? resolvedAccess.allowedStudentEmails : [],
+        blockedStudentEmails: Array.isArray(resolvedAccess.blockedStudentEmails) ? resolvedAccess.blockedStudentEmails : [],
+        studentSubscriptions: resolvedAccess.studentSubscriptions || {},
       },
     };
 
@@ -1378,9 +1356,12 @@ export const apiService = {
     let firestoreStudent: (StudentUser & { passwordHash?: string }) | null = null;
     let serverStudent: StudentUser | null = null;
 
-    // 1. Look up student in Firestore
+    // 1. Look up student in Firestore (with 1.5s ceiling so server auth is fast)
     try {
-      firestoreStudent = (await getStudentFromFirestore(cleanEmail)) as any;
+      firestoreStudent = (await Promise.race([
+        getStudentFromFirestore(cleanEmail),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+      ])) as any;
     } catch (e) {
       console.warn('Firestore student lookup warning:', e);
     }
@@ -1510,15 +1491,13 @@ export const apiService = {
       },
     };
 
-    // 2. Save in Firestore permanently with passwordHash
-    try {
-      await saveStudentToFirestore({
-        ...serverUser,
-        passwordHash: data.passwordHash,
-      } as any);
-    } catch (e) {
+    // 2. Save in Firestore permanently with passwordHash in background
+    saveStudentToFirestore({
+      ...serverUser,
+      passwordHash: data.passwordHash,
+    } as any).catch((e) => {
       console.warn('Firestore save student warning:', e);
-    }
+    });
 
     this.saveCurrentStudent(serverUser);
     this.saveLocalStudentBookmarks(cleanEmail, serverUser.progress.bookmarkedResourceIds);
@@ -2381,6 +2360,7 @@ export const apiService = {
       } else {
         delete localCachedData.settings.access.studentSubscriptions[target];
       }
+      localCachedData.settings.access.updatedAt = new Date().toISOString();
       try {
         await this.savePlatformSettings({ access: localCachedData.settings.access });
       } catch (err) {

@@ -684,6 +684,33 @@ export const ResourceView: React.FC<ResourceViewProps> = ({
                                 <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                                   {file.description || 'ملف دراسي بصيغة PDF يغطي كافة النقاط الرئيسية.'}
                                 </p>
+
+                                {/* Linked Video Callout */}
+                                {(() => {
+                                  const linkedVideo = videos.find((v) => v.linkedFileId === file.id || v.id === file.linkedVideoId);
+                                  if (!linkedVideo) return null;
+                                  return (
+                                    <div className="bg-blue-50/80 dark:bg-blue-950/40 rounded-xl p-2.5 border border-blue-200 dark:border-blue-800/80 flex items-center justify-between gap-2 mt-2">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-base">🎬</span>
+                                        <div className="text-right truncate">
+                                          <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 block">مرتبط بفيديو الشرح:</span>
+                                          <span className="text-xs text-slate-800 dark:text-slate-200 font-bold truncate block">{linkedVideo.title}</span>
+                                        </div>
+                                      </div>
+                                      {onPlayVideo && (
+                                        <button
+                                          type="button"
+                                          onClick={() => onPlayVideo(linkedVideo)}
+                                          className="shrink-0 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                                        >
+                                          <span>مشاهدة الفيديو</span>
+                                          <Play className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
 
                               <div className="pt-3.5 sm:pt-4 mt-3 sm:mt-4 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">

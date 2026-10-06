@@ -886,6 +886,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
 
+      let savedVidId = editingVideo ? editingVideo.id : '';
       if (editingVideo) {
         await apiService.updateVideo(editingVideo.id, {
           resourceId: targetResourceId,
@@ -898,9 +899,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           linkedQuizId: vidLinkedQuizId || undefined,
           linkedFileId: vidLinkedFileId || undefined,
         });
+        savedVidId = editingVideo.id;
         showToast('تم تعديل الفيديو وحفظه بشكل دائم بنجاح!');
       } else {
-        await apiService.createVideo({
+        const created = await apiService.createVideo({
           resourceId: targetResourceId,
           sectionId: chosenSectionId,
           title: vidTitle.trim(),
@@ -911,8 +913,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           linkedQuizId: vidLinkedQuizId || undefined,
           linkedFileId: vidLinkedFileId || undefined,
         });
+        savedVidId = created.id;
         showToast('تمت إضافة الفيديو الجديد وحفظه بنجاح!');
       }
+
+      // Bi-directional file-video linking synchronization
+      if (vidLinkedFileId && savedVidId) {
+        const targetFile = platformData.files.find((f) => f.id === vidLinkedFileId);
+        if (targetFile && targetFile.linkedVideoId !== savedVidId) {
+          await apiService.updateFile(targetFile.id, {
+            ...targetFile,
+            linkedVideoId: savedVidId,
+          });
+        }
+      }
+      if (savedVidId) {
+        const oldFiles = platformData.files.filter(
+          (f) => f.linkedVideoId === savedVidId && f.id !== vidLinkedFileId
+        );
+        for (const oldFile of oldFiles) {
+          await apiService.updateFile(oldFile.id, {
+            ...oldFile,
+            linkedVideoId: undefined,
+          });
+        }
+      }
+
       setIsVideoModalOpen(false);
       await onRefreshData();
     } catch (e: any) {
@@ -3117,9 +3143,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <select
                     value={vidLinkedFileId}
                     onChange={(e) => setVidLinkedFileId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-right text-slate-900 dark:text-slate-100 font-medium"
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-right text-slate-900 dark:text-slate-100 font-bold"
                   >
-                    <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold">
+                    <option value="" style={{ color: '#0f172a', backgroundColor: '#ffffff', fontWeight: 'bold' }}>
                       بدون ملف مرفق (فيديو فقط)
                     </option>
                     {platformData.files.map((f) => {
@@ -3128,7 +3154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <option 
                           key={f.id} 
                           value={f.id} 
-                          className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 py-1"
+                          style={{ color: '#0f172a', backgroundColor: '#ffffff', fontWeight: '500' }}
                         >
                           📄 {f.title} {res ? `(${res.title})` : ''} {f.fileSize ? `[${f.fileSize}]` : ''}
                         </option>
@@ -3432,25 +3458,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">اختياري</span>
                 </div>
 
-                {/* Native Dropdown */}
+                {/* Native Dropdown with explicit high-contrast option styling */}
                 <select
                   value={fileLinkedVideoId}
                   onChange={(e) => setFileLinkedVideoId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs sm:text-sm text-right text-slate-900 dark:text-slate-100 font-medium shadow-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs sm:text-sm text-right text-slate-900 dark:text-slate-100 font-bold shadow-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
-                  <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold">
+                  <option value="" style={{ color: '#0f172a', backgroundColor: '#ffffff', fontWeight: 'bold' }}>
                     بدون ربط بفيديو (ملف مستقل)
                   </option>
                   {platformData.videos.map((v) => {
                     const sec = platformData.sections.find((s) => s.id === v.sectionId);
                     const res = platformData.resources.find((r) => r.id === v.resourceId);
+                    const label = `🎬 ${v.title || 'شرح فيديو'}${sec ? ` [${sec.title}]` : ''}${res ? ` (${res.title})` : ''}`;
                     return (
                       <option 
                         key={v.id} 
                         value={v.id}
-                        className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 py-1"
+                        style={{ color: '#0f172a', backgroundColor: '#ffffff', fontWeight: '500' }}
                       >
-                        🎬 {v.title || 'شرح فيديو'} {sec ? `[قسم: ${sec.title}]` : ''} {res ? `[مصدر: ${res.title}]` : ''}
+                        {label}
                       </option>
                     );
                   })}
@@ -3478,11 +3505,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0 flex-wrap">
                       {[
                         { id: 'all', label: 'الكل' },
-                        { id: 'sec-quantitative', label: 'كمي' },
-                        { id: 'sec-verbal', label: 'لفظي' },
+                        ...platformData.sections.map((s) => ({
+                          id: s.id,
+                          label: s.title.replace('القسم ', '').replace('قسم ', ''),
+                        })),
                       ].map((tab) => (
                         <button
                           key={tab.id}
@@ -3500,7 +3529,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  <div className="max-h-40 overflow-y-auto space-y-1 border border-blue-200 dark:border-blue-800/80 rounded-xl p-1 bg-white dark:bg-slate-900">
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 border border-blue-200 dark:border-blue-800/80 rounded-xl p-1.5 bg-white dark:bg-slate-900">
                     {platformData.videos
                       .filter((v) => {
                         if (fileVideoFilterSec !== 'all' && v.sectionId !== fileVideoFilterSec) {
@@ -3525,24 +3554,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             key={v.id}
                             type="button"
                             onClick={() => setFileLinkedVideoId(isSelected ? '' : v.id)}
-                            className={`w-full text-right p-2 rounded-lg text-xs transition-all flex items-center justify-between cursor-pointer ${
+                            className={`w-full text-right p-2.5 rounded-xl text-xs transition-all flex items-center justify-between cursor-pointer border ${
                               isSelected
-                                ? 'bg-blue-100 dark:bg-blue-950/70 border border-blue-400 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-bold'
-                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-transparent'
+                                ? 'bg-blue-100 dark:bg-blue-950/90 border-blue-500 dark:border-blue-400 text-blue-950 dark:text-blue-100 font-black shadow-xs'
+                                : 'bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
                             }`}
                           >
-                            <div className="flex items-center gap-1.5 truncate">
-                              <span>🎬</span>
-                              <span className="font-bold truncate">{v.title || 'شرح فيديو'}</span>
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-sm">🎬</span>
+                              <span className="font-black text-slate-900 dark:text-white truncate">{v.title || 'شرح فيديو'}</span>
                               {sec && (
-                                <span className="text-[10px] opacity-75 font-normal bg-slate-100 dark:bg-slate-800 px-1 rounded">
-                                  {sec.code === 'quantitative' ? 'كمي' : sec.code === 'verbal' ? 'لفظي' : sec.title}
+                                <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">
+                                  {sec.title}
                                 </span>
                               )}
-                              {res && <span className="text-[10px] opacity-75 font-normal">({res.title})</span>}
+                              {res && <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">({res.title})</span>}
                             </div>
-                            <span className="text-[10px] shrink-0 font-mono text-slate-400 mr-2">
-                              {isSelected ? '✓ تم الربط بهذا الفيديو' : 'ربط'}
+                            <span className={`text-[11px] shrink-0 font-bold px-2 py-0.5 rounded-lg ${
+                              isSelected
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            }`}>
+                              {isSelected ? '✓ تم الربط بهذا الفيديو' : 'اختر للربط'}
                             </span>
                           </button>
                         );
