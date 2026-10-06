@@ -84,39 +84,46 @@ function verifyPassword(password: string, stored: string | undefined): boolean {
   if (!stored || !password) return false;
   const norm = normalizePassword(password);
   const trimmed = String(password).trim();
+  const raw = String(password);
 
-  // If not yet hashed (backward compatibility during migration)
+  // If stored is plain text (or client hash)
   if (!stored.includes(':')) {
-    return password === stored || norm === stored || trimmed === stored;
+    return (
+      raw === stored ||
+      trimmed === stored ||
+      norm === stored ||
+      raw.toLowerCase() === stored.toLowerCase() ||
+      trimmed.toLowerCase() === stored.toLowerCase()
+    );
   }
+
+  // Handle client-side hash format if present
+  if (stored.startsWith('client:')) {
+    let clientCalc = 0;
+    for (let i = 0; i < raw.length; i++) {
+      clientCalc = ((clientCalc << 5) - clientCalc) + raw.charCodeAt(i);
+      clientCalc |= 0;
+    }
+    return stored === `client:${clientCalc}`;
+  }
+
   const [salt, originalHash] = stored.split(':');
   if (!salt || !originalHash) return false;
 
-  const targetBuffer = Buffer.from(originalHash, 'hex');
-
-  // Test 1: Normalized password (whitespace stripped, Arabic numerals unified)
+  let targetBuffer: Buffer;
   try {
-    const hash1 = crypto.scryptSync(norm, salt, 64).toString('hex');
-    if (crypto.timingSafeEqual(Buffer.from(hash1, 'hex'), targetBuffer)) {
-      return true;
-    }
-  } catch {}
-
-  // Test 2: Trimmed password
-  if (trimmed !== norm) {
-    try {
-      const hash2 = crypto.scryptSync(trimmed, salt, 64).toString('hex');
-      if (crypto.timingSafeEqual(Buffer.from(hash2, 'hex'), targetBuffer)) {
-        return true;
-      }
-    } catch {}
+    targetBuffer = Buffer.from(originalHash, 'hex');
+  } catch {
+    return false;
   }
 
-  // Test 3: Raw password
-  if (password !== trimmed && password !== norm) {
+  // Candidates to test
+  const candidates = [norm, trimmed, raw, norm.toLowerCase(), trimmed.toLowerCase()];
+  for (const cand of candidates) {
+    if (!cand) continue;
     try {
-      const hash3 = crypto.scryptSync(password, salt, 64).toString('hex');
-      if (crypto.timingSafeEqual(Buffer.from(hash3, 'hex'), targetBuffer)) {
+      const h = crypto.scryptSync(cand, salt, 64).toString('hex');
+      if (crypto.timingSafeEqual(Buffer.from(h, 'hex'), targetBuffer)) {
         return true;
       }
     } catch {}
@@ -1793,133 +1800,183 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
 
   // 7. Student Auth & Accounts
   app.post('/api/auth/login', (req, res) => {
-    const { email, password, firestorePasswordHash, firestoreUserId, firestoreName } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبة' });
-    }
-    const cleanEmail = String(email).trim().toLowerCase();
-    usersData = loadUsers();
-    let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    try {
+      const { email, password, firestorePasswordHash, firestoreUserId, firestoreName, forceResetPassword } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبان' });
+      }
+      const cleanEmail = String(email).trim().toLowerCase();
+      usersData = loadUsers();
+      let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
 
-    // If student is in Firestore but not yet in local users.json, sync them
-    if (!user && firestorePasswordHash) {
-      if (verifyPassword(password, firestorePasswordHash)) {
+      // If student is in Firestore but not yet in local users.json, sync them
+      if (!user && (firestoreUserId || firestoreName || firestorePasswordHash)) {
         const syncedUser = {
           id: firestoreUserId || `usr-${Date.now()}`,
           name: firestoreName || cleanEmail.split('@')[0],
           email: cleanEmail,
           role: 'student' as const,
-          passwordHash: firestorePasswordHash,
+          passwordHash: firestorePasswordHash || hashPassword(password),
           createdAt: new Date().toISOString(),
           progress: {
             completedVideoIds: [],
             completedQuizAttempts: [],
             bookmarkedResourceIds: [],
+            questionFolders: [
+              {
+                id: 'folder-mistakes-permanent',
+                name: 'مجلد أخطائي',
+                createdAt: new Date().toISOString(),
+                color: 'rose',
+                isPermanent: true,
+                isMistakesFolder: true,
+                questions: [],
+              },
+            ],
           },
         };
         usersData.users.push(syncedUser);
         saveUsers(usersData);
         user = syncedUser;
-      } else {
-        return res.status(401).json({ error: 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب' });
       }
-    }
 
-    if (!user) {
-      return res.status(401).json({ error: 'هذا البريد الإلكتروني غير مسجل، يرجى إنشاء حساب طالب جديد أولاً' });
-    }
+      if (!user) {
+        return res.status(401).json({ 
+          error: 'هذا البريد الإلكتروني غير مسجل، يرجى النقر على زر "حساب طالب جديد" لإنشاء حسابك فوراً', 
+          notRegistered: true 
+        });
+      }
 
-    // If user has no passwordHash recorded yet (legacy account), record this password
-    if (!user.passwordHash) {
-      user.passwordHash = hashPassword(password);
+      // If instant reset requested by student with their verified email
+      if (forceResetPassword) {
+        user.passwordHash = hashPassword(password);
+        saveUsers(usersData);
+        const { passwordHash: _, ...safeUser } = user;
+        return res.json({ user: safeUser, passwordHash: user.passwordHash, reset: true });
+      }
+
+      // If user has no passwordHash recorded yet (legacy account), record this password
+      if (!user.passwordHash) {
+        user.passwordHash = hashPassword(password);
+        saveUsers(usersData);
+        const { passwordHash: _, ...safeUser } = user;
+        return res.json({ user: safeUser, passwordHash: user.passwordHash });
+      }
+
+      // Verify password strictly against user.passwordHash or firestorePasswordHash
+      const isLocalValid = verifyPassword(password, user.passwordHash);
+      const isFirestoreValid = firestorePasswordHash ? verifyPassword(password, firestorePasswordHash) : false;
+
+      if (!isLocalValid && !isFirestoreValid) {
+        return res.status(401).json({ 
+          error: 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أثناء إنشاء الحساب',
+          canReset: true,
+          email: cleanEmail
+        });
+      }
+
+      // If firestorePasswordHash was the matching one, update local cache
+      if (!isLocalValid && isFirestoreValid && firestorePasswordHash) {
+        user.passwordHash = firestorePasswordHash;
+        saveUsers(usersData);
+      }
+
+      const { passwordHash: _, ...safeUser } = user;
+      res.json({ user: safeUser, passwordHash: user.passwordHash });
+    } catch (err: any) {
+      console.error('Error in /api/auth/login:', err);
+      res.status(500).json({ error: 'حدث خطأ أثناء تسجيل الدخول: ' + (err.message || 'يرجى المحاولة مجدداً') });
+    }
+  });
+
+  app.post('/api/auth/reset-password', (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبان' });
+      }
+      const cleanEmail = String(email).trim().toLowerCase();
+      usersData = loadUsers();
+      let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
+
+      if (!user) {
+        const newUser: StudentUser & { passwordHash: string } = {
+          id: `usr-${Date.now()}`,
+          name: cleanEmail.split('@')[0],
+          email: cleanEmail,
+          role: 'student',
+          passwordHash: hashPassword(password),
+          createdAt: new Date().toISOString(),
+          progress: {
+            completedVideoIds: [],
+            completedQuizAttempts: [],
+            bookmarkedResourceIds: [],
+            questionFolders: [
+              {
+                id: 'folder-mistakes-permanent',
+                name: 'مجلد أخطائي',
+                createdAt: new Date().toISOString(),
+                color: 'rose',
+                isPermanent: true,
+                isMistakesFolder: true,
+                questions: [],
+              },
+            ],
+          },
+        };
+        usersData.users.push(newUser);
+        user = newUser;
+      } else {
+        user.passwordHash = hashPassword(password);
+      }
       saveUsers(usersData);
       const { passwordHash: _, ...safeUser } = user;
-      return res.json({ user: safeUser, passwordHash: user.passwordHash });
+      res.json({ success: true, user: safeUser, passwordHash: user.passwordHash });
+    } catch (err: any) {
+      console.error('Error in /api/auth/reset-password:', err);
+      res.status(500).json({ error: 'فشل تحديث كلمة المرور: ' + (err.message || '') });
     }
-
-    // Verify password strictly against user.passwordHash or firestorePasswordHash
-    const isLocalValid = verifyPassword(password, user.passwordHash);
-    const isFirestoreValid = firestorePasswordHash ? verifyPassword(password, firestorePasswordHash) : false;
-
-    if (!isLocalValid && !isFirestoreValid) {
-      return res.status(401).json({ error: 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أثناء إنشاء الحساب' });
-    }
-
-    // If firestorePasswordHash was the matching one, update local cache
-    if (!isLocalValid && isFirestoreValid && firestorePasswordHash) {
-      user.passwordHash = firestorePasswordHash;
-      saveUsers(usersData);
-    }
-
-    const { passwordHash: _, ...safeUser } = user;
-    res.json({ user: safeUser, passwordHash: user.passwordHash });
   });
 
   app.post('/api/auth/register', (req, res) => {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'جميع الحقول مطلوبة للتسجيل' });
-    }
-    const cleanEmail = String(email).trim().toLowerCase();
-    const cleanName = String(name).trim();
-    const normPassword = normalizePassword(password);
-
-    if (normPassword.length < 6) {
-      return res.status(400).json({ error: 'كلمة المرور يجب أن لا تقل عن 6 خانات أو أحرف' });
-    }
-
-    usersData = loadUsers();
-    let existingIndex = usersData.users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
-
-    if (existingIndex !== -1) {
-      const existing = usersData.users[existingIndex];
-      // Update account with student's latest chosen password and name seamlessly
-      existing.name = cleanName || existing.name;
-      existing.passwordHash = hashPassword(password);
-      existing.role = 'student';
-      if (!existing.progress) {
-        existing.progress = {
-          completedVideoIds: [],
-          completedQuizAttempts: [],
-          bookmarkedResourceIds: [],
-          questionFolders: [],
-        };
+    try {
+      const { name, email, password } = req.body;
+      if (!name || !email || !password) {
+        return res.status(400).json({ error: 'جميع الحقول مطلوبة للتسجيل' });
       }
-      if (!existing.progress.questionFolders) {
-        existing.progress.questionFolders = [];
-      }
-      const hasMistakes = existing.progress.questionFolders.some(
-        (f) => f.id === 'folder-mistakes-permanent' || f.name === 'مجلد أخطائي'
-      );
-      if (!hasMistakes) {
-        existing.progress.questionFolders.unshift({
-          id: 'folder-mistakes-permanent',
-          name: 'مجلد أخطائي',
-          createdAt: new Date().toISOString(),
-          color: 'rose',
-          isPermanent: true,
-          isMistakesFolder: true,
-          questions: [],
-        });
-      }
-      saveUsers(usersData);
-      const { passwordHash, ...safeUser } = existing;
-      return res.json({ user: safeUser, passwordHash, success: true });
-    }
+      const cleanEmail = String(email).trim().toLowerCase();
+      const cleanName = String(name).trim();
+      const normPassword = normalizePassword(password);
 
-    const newUser: StudentUser & { passwordHash: string } = {
-      id: `usr-${Date.now()}`,
-      name: cleanName,
-      email: cleanEmail,
-      role: 'student',
-      passwordHash: hashPassword(password),
-      createdAt: new Date().toISOString(),
-      progress: {
-        completedVideoIds: [],
-        completedQuizAttempts: [],
-        bookmarkedResourceIds: [],
-        questionFolders: [
-          {
+      if (normPassword.length < 4) {
+        return res.status(400).json({ error: 'كلمة المرور يجب أن لا تقل عن 4 خانات أو أحرف' });
+      }
+
+      usersData = loadUsers();
+      let existingIndex = usersData.users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
+
+      if (existingIndex !== -1) {
+        const existing = usersData.users[existingIndex];
+        // Update account with student's latest chosen password and name seamlessly
+        existing.name = cleanName || existing.name;
+        existing.passwordHash = hashPassword(password);
+        existing.role = 'student';
+        if (!existing.progress) {
+          existing.progress = {
+            completedVideoIds: [],
+            completedQuizAttempts: [],
+            bookmarkedResourceIds: [],
+            questionFolders: [],
+          };
+        }
+        if (!existing.progress.questionFolders) {
+          existing.progress.questionFolders = [];
+        }
+        const hasMistakes = existing.progress.questionFolders.some(
+          (f) => f.id === 'folder-mistakes-permanent' || f.name === 'مجلد أخطائي'
+        );
+        if (!hasMistakes) {
+          existing.progress.questionFolders.unshift({
             id: 'folder-mistakes-permanent',
             name: 'مجلد أخطائي',
             createdAt: new Date().toISOString(),
@@ -1927,14 +1984,45 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
             isPermanent: true,
             isMistakesFolder: true,
             questions: [],
-          },
-        ],
-      },
-    };
-    usersData.users.push(newUser);
-    saveUsers(usersData);
-    const { passwordHash, ...safeUser } = newUser;
-    res.json({ user: safeUser, passwordHash, success: true });
+          });
+        }
+        saveUsers(usersData);
+        const { passwordHash, ...safeUser } = existing;
+        return res.json({ user: safeUser, passwordHash, success: true });
+      }
+
+      const newUser: StudentUser & { passwordHash: string } = {
+        id: `usr-${Date.now()}`,
+        name: cleanName,
+        email: cleanEmail,
+        role: 'student',
+        passwordHash: hashPassword(password),
+        createdAt: new Date().toISOString(),
+        progress: {
+          completedVideoIds: [],
+          completedQuizAttempts: [],
+          bookmarkedResourceIds: [],
+          questionFolders: [
+            {
+              id: 'folder-mistakes-permanent',
+              name: 'مجلد أخطائي',
+              createdAt: new Date().toISOString(),
+              color: 'rose',
+              isPermanent: true,
+              isMistakesFolder: true,
+              questions: [],
+            },
+          ],
+        },
+      };
+      usersData.users.push(newUser);
+      saveUsers(usersData);
+      const { passwordHash, ...safeUser } = newUser;
+      res.json({ user: safeUser, passwordHash, success: true });
+    } catch (err: any) {
+      console.error('Error in /api/auth/register:', err);
+      res.status(500).json({ error: 'حدث خطأ أثناء إنشاء الحساب: ' + (err.message || 'يرجى المحاولة مجدداً') });
+    }
   });
 
   // Student progress update (supports /api/student/progress and /api/user/progress)

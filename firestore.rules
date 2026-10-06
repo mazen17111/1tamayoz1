@@ -8,7 +8,7 @@ service cloud.firestore {
 
     // Helper functions
     function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 200;
     }
 
     function incoming() {
@@ -48,9 +48,9 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
-             data.email is string && data.email.size() > 0 && data.email.size() <= 150;
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 200 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 250 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 250;
     }
 
     function isValidPlatformData(data) {

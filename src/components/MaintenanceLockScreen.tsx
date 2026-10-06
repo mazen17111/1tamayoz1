@@ -129,6 +129,29 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   };
 
   // Direct form submission for guest portal
+  const handleInstantReset = async () => {
+    if (!email.trim() || !password.trim()) return;
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      const user = await apiService.resetPassword(email.trim(), password.trim());
+      try {
+        if (rememberMe) {
+          safeStorage.setItem('tamayuz_remembered_student_email', email.trim());
+        }
+      } catch {}
+      if (onLoginSuccess) {
+        onLoginSuccess(user);
+      } else {
+        await onRefresh();
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'حدث خطأ أثناء اعتماد كلمة المرور');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDirectAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -168,8 +191,8 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
           setIsSubmitting(false);
           return;
         }
-        if (password.length < 6) {
-          setAuthError('كلمة المرور يجب أن لا تقل عن 6 خانات أو أحرف');
+        if (password.length < 4) {
+          setAuthError('كلمة المرور يجب أن لا تقل عن 4 خانات أو أحرف');
           setIsSubmitting(false);
           return;
         }
@@ -315,11 +338,51 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
                 </div>
               </div>
 
-              {/* Error Message */}
+              {/* Error Message with Smart Recovery */}
               {authError && (
-                <div className="p-3.5 bg-rose-950/40 border border-rose-500/40 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
+                <div className="p-3.5 bg-rose-950/50 border border-rose-500/50 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
                   <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0 mt-1.5 animate-pulse" />
-                  <span className="leading-relaxed">{authError}</span>
+                  <div className="space-y-2 flex-1">
+                    <span className="leading-relaxed block font-semibold">{authError}</span>
+
+                    {/* Instant Reset Option */}
+                    {authTab === 'login' && authError.includes('كلمة المرور') && password.trim().length >= 4 && (
+                      <div className="p-2.5 bg-amber-500/15 border border-amber-500/40 rounded-xl space-y-1.5">
+                        <p className="text-[11px] text-amber-200 font-bold">
+                          💡 هل نسيت كلمة المرور وتريد اعتماد كلمة المرور المكتوبة أعلاه والدخول فوراً؟
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleInstantReset}
+                          disabled={isSubmitting}
+                          className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-lg shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>اعتماد كلمة المرور هذه والدخول فوراً</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Instant Switch to Register */}
+                    {authError.includes('غير مسجل') && (
+                      <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/40 rounded-xl space-y-1.5">
+                        <p className="text-[11px] text-emerald-200 font-bold">
+                          ✨ هذا البريد غير مسجل، هل تود إنشاء حساب به فوراً؟
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthTab('register');
+                            setAuthError(null);
+                          }}
+                          className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>الانتقال لإنشاء حساب بهذا البريد</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

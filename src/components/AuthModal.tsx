@@ -56,6 +56,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [canResetPassword, setCanResetPassword] = useState(false);
+  const [isNotRegistered, setIsNotRegistered] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Keyboard accessibility: ESC key to close
@@ -79,9 +81,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch {}
   }, []);
 
+  const handleInstantReset = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    if (!cleanEmail || !cleanPassword) return;
+
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const user = await apiService.resetPassword(cleanEmail, cleanPassword);
+      try {
+        if (rememberMe) {
+          safeStorage.setItem('tamayuz_remembered_student_email', cleanEmail);
+        }
+      } catch {}
+      onSuccess(user);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'حدث خطأ أثناء اعتماد كلمة المرور');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setCanResetPassword(false);
+    setIsNotRegistered(false);
     setIsLoading(true);
 
     const cleanEmail = email.trim().toLowerCase();
@@ -119,8 +147,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setIsLoading(false);
           return;
         }
-        if (cleanPassword.length < 6) {
-          setError('كلمة المرور يجب أن لا تقل عن 6 خانات أو أحرف');
+        if (cleanPassword.length < 4) {
+          setError('كلمة المرور يجب أن لا تقل عن 4 خانات أو أحرف');
           setIsLoading(false);
           return;
         }
@@ -144,6 +172,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: any) {
       const errMsg = err.message || 'حدث خطأ أثناء المحاولة، يرجى التحقق من صحة البيانات والمحاولة مجدداً.';
       setError(errMsg);
+      if (err.canReset || errMsg.includes('كلمة المرور')) {
+        setCanResetPassword(true);
+      }
+      if (err.notRegistered || errMsg.includes('غير مسجل')) {
+        setIsNotRegistered(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -242,23 +276,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             </div>
 
-            {/* Error Banner */}
+            {/* Error Banner with Smart One-Click Recovery */}
             {error && (
-              <div className="p-3.5 bg-rose-950/50 border border-rose-500/50 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
+              <div className="p-3.5 bg-rose-950/60 border border-rose-500/60 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <div className="space-y-1 flex-1">
-                  <span className="leading-relaxed block">{error}</span>
-                  {tab === 'login' && error.includes('كلمة المرور') && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTab('register');
-                        setError(null);
-                      }}
-                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline cursor-pointer mt-1 inline-block"
-                    >
-                      💡 هل نسيت كلمة المرور؟ اضغط هنا لتعيين كلمة مرور جديدة وبدء التعلم فوراً
-                    </button>
+                <div className="space-y-2 flex-1">
+                  <span className="leading-relaxed block font-semibold">{error}</span>
+                  
+                  {/* Instant Password Reset Option */}
+                  {tab === 'login' && (canResetPassword || error.includes('كلمة المرور')) && password.trim().length >= 4 && (
+                    <div className="p-2.5 bg-amber-500/15 border border-amber-500/40 rounded-xl space-y-1.5">
+                      <p className="text-[11px] text-amber-200 font-bold">
+                        💡 هل نسيت كلمة المرور وتريد اعتماد كلمة المرور المكتوبة أعلاه والدخول فوراً؟
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleInstantReset}
+                        disabled={isLoading}
+                        className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-lg shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>اعتماد كلمة المرور هذه والدخول فوراً</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Instant Switch to Register if not found */}
+                  {(isNotRegistered || error.includes('غير مسجل')) && (
+                    <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/40 rounded-xl space-y-1.5">
+                      <p className="text-[11px] text-emerald-200 font-bold">
+                        ✨ هذا البريد غير مسجل، هل تود إنشاء حساب به فوراً؟
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTab('register');
+                          setError(null);
+                        }}
+                        className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>الانتقال لإنشاء حساب بهذا البريد</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
