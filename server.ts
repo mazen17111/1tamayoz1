@@ -1805,9 +1805,10 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       if (!email || !password) {
         return res.status(400).json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبان' });
       }
-      const cleanEmail = String(email).trim().toLowerCase();
+      const rawEmail = String(email).trim().toLowerCase();
+      const cleanEmail = rawEmail.includes('@') ? rawEmail : `${rawEmail}@tamayuz.edu`;
       usersData = loadUsers();
-      let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
+      let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail || u.email.toLowerCase() === rawEmail);
 
       // If student is in Firestore but not yet in local users.json, sync them
       if (!user && (firestoreUserId || firestoreName || firestorePasswordHash)) {
@@ -1895,9 +1896,10 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       if (!email || !password) {
         return res.status(400).json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبان' });
       }
-      const cleanEmail = String(email).trim().toLowerCase();
+      const rawEmail = String(email).trim().toLowerCase();
+      const cleanEmail = rawEmail.includes('@') ? rawEmail : `${rawEmail}@tamayuz.edu`;
       usersData = loadUsers();
-      let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail);
+      let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail || u.email.toLowerCase() === rawEmail);
 
       if (!user) {
         const newUser: StudentUser & { passwordHash: string } = {
@@ -1944,16 +1946,17 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       if (!name || !email || !password) {
         return res.status(400).json({ error: 'جميع الحقول مطلوبة للتسجيل' });
       }
-      const cleanEmail = String(email).trim().toLowerCase();
+      const rawEmail = String(email).trim().toLowerCase();
+      const cleanEmail = rawEmail.includes('@') ? rawEmail : `${rawEmail}@tamayuz.edu`;
       const cleanName = String(name).trim();
       const normPassword = normalizePassword(password);
 
-      if (normPassword.length < 4) {
-        return res.status(400).json({ error: 'كلمة المرور يجب أن لا تقل عن 4 خانات أو أحرف' });
+      if (!normPassword) {
+        return res.status(400).json({ error: 'يرجى كتابة كلمة المرور' });
       }
 
       usersData = loadUsers();
-      let existingIndex = usersData.users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
+      let existingIndex = usersData.users.findIndex((u) => u.email.toLowerCase() === cleanEmail || u.email.toLowerCase() === rawEmail);
 
       if (existingIndex !== -1) {
         const existing = usersData.users[existingIndex];

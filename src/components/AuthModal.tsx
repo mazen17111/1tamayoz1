@@ -11,10 +11,10 @@ import {
   ShieldCheck, 
   Eye, 
   EyeOff, 
-  GraduationCap, 
   CheckCircle2, 
   KeyRound, 
-  ArrowLeft 
+  ArrowLeft,
+  RotateCcw
 } from 'lucide-react';
 import { StudentUser } from '../types';
 import { apiService } from '../services/api';
@@ -28,7 +28,7 @@ interface AuthModalProps {
   onOpenAdmin?: () => void;
 }
 
-// Crisp official WhatsApp vector icon
+// WhatsApp Icon helper
 function WhatsAppIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg 
@@ -48,16 +48,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'login',
   onOpenAdmin,
 }) => {
-  const [tab, setTab] = useState<'login' | 'register'>(initialMode);
+  const [tab, setTab] = useState<'login' | 'register' | 'reset'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [canResetPassword, setCanResetPassword] = useState(false);
-  const [isNotRegistered, setIsNotRegistered] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Keyboard accessibility: ESC key to close
@@ -81,51 +78,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch {}
   }, []);
 
-  const handleInstantReset = async () => {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-    if (!cleanEmail || !cleanPassword) return;
-
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const user = await apiService.resetPassword(cleanEmail, cleanPassword);
-      try {
-        if (rememberMe) {
-          safeStorage.setItem('tamayuz_remembered_student_email', cleanEmail);
-        }
-      } catch {}
-      onSuccess(user);
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'حدث خطأ أثناء اعتماد كلمة المرور');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setCanResetPassword(false);
-    setIsNotRegistered(false);
     setIsLoading(true);
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = email.trim();
     const cleanPassword = password.trim();
 
     try {
       if (tab === 'login') {
         if (!cleanEmail || !cleanPassword) {
-          setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
+          setError('يرجى كتابة البريد الإلكتروني وكلمة المرور');
           setIsLoading(false);
           return;
         }
 
         const user = await apiService.login(cleanEmail, cleanPassword);
 
-        // Save or clear remember me preference
         try {
           if (rememberMe) {
             safeStorage.setItem('tamayuz_remembered_student_email', cleanEmail);
@@ -136,24 +106,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         onSuccess(user);
         onClose();
-      } else {
+      } else if (tab === 'register') {
         if (!name.trim()) {
-          setError('يرجى إدخال اسم الطالب الكامل (ثنائي أو ثلاثي)');
+          setError('يرجى إدخال اسم الطالب');
           setIsLoading(false);
           return;
         }
-        if (!cleanEmail || !cleanEmail.includes('@')) {
-          setError('يرجى إدخال بريد إلكتروني صحيح');
+        if (!cleanEmail) {
+          setError('يرجى إدخال البريد الإلكتروني');
           setIsLoading(false);
           return;
         }
-        if (cleanPassword.length < 4) {
-          setError('كلمة المرور يجب أن لا تقل عن 4 خانات أو أحرف');
-          setIsLoading(false);
-          return;
-        }
-        if (cleanPassword !== confirmPassword.trim()) {
-          setError('كلمتا المرور غير متطابقتين، يرجى كتابة نفس كلمة المرور في خانة التأكيد');
+        if (!cleanPassword) {
+          setError('يرجى كتابة كلمة المرور');
           setIsLoading(false);
           return;
         }
@@ -168,16 +133,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         onSuccess(user);
         onClose();
+      } else if (tab === 'reset') {
+        if (!cleanEmail || !cleanPassword) {
+          setError('يرجى كتابة بريدك الإلكتروني وكلمة المرور الجديدة');
+          setIsLoading(false);
+          return;
+        }
+
+        const user = await apiService.resetPassword(cleanEmail, cleanPassword);
+
+        try {
+          if (rememberMe) {
+            safeStorage.setItem('tamayuz_remembered_student_email', cleanEmail);
+          }
+        } catch {}
+
+        onSuccess(user);
+        onClose();
       }
     } catch (err: any) {
       const errMsg = err.message || 'حدث خطأ أثناء المحاولة، يرجى التحقق من صحة البيانات والمحاولة مجدداً.';
       setError(errMsg);
-      if (err.canReset || errMsg.includes('كلمة المرور')) {
-        setCanResetPassword(true);
-      }
-      if (err.notRegistered || errMsg.includes('غير مسجل')) {
-        setIsNotRegistered(true);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -185,13 +161,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const whatsappSupportUrl = `https://wa.me/?text=${encodeURIComponent(
     tab === 'login'
-      ? 'السلام عليكم، أحتاج مساعدة في استعادة بيانات تسجيل الدخول إلى منصة أقسام رعد.'
+      ? 'السلام عليكم، أحتاج مساعدة في الدخول إلى منصة أقسام رعد.'
+      : tab === 'reset'
+      ? 'السلام عليكم، أحتاج مساعدة في إعادة تعيين كلمة المرور لمنصة أقسام رعد.'
       : 'السلام عليكم، أود تفعيل حسابي في منصة أقسام رعد.'
   )}`;
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 text-white p-3.5 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md text-white p-3.5 sm:p-6 overflow-y-auto"
       dir="rtl"
     >
       {/* Outer ambient glow */}
@@ -229,8 +207,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </h1>
                 <p className="text-xs text-slate-400 mt-1 font-medium">
                   {tab === 'login' 
-                    ? 'تسجيل الدخول إلى حساب الطالب للوصول للشروحات والاختبارات' 
-                    : 'إنشاء حساب طالب جديد والبدء في حل الاختبارات والمذاكرة'}
+                    ? 'تسجيل الدخول إلى حساب الطالب والوصول لكافة الشروحات والاختبارات' 
+                    : tab === 'register'
+                    ? 'إنشاء حساب طالب جديد والبدء في حل الاختبارات والمذاكرة فوراً'
+                    : 'إعادة تعيين كلمة المرور وتعيين كلمة مرور جديدة والدخول للمنصة'}
                 </p>
               </div>
             </div>
@@ -240,99 +220,104 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span>
                 {tab === 'login'
-                  ? 'تنبيه: يلزم كتابة نفس البريد الإلكتروني وكلمة المرور المسجلين أثناء إنشاء الحساب'
-                  : 'احفظ نفس الإيميل وكلمة المرور لتسجيل الدخول بهما دائماً دون أخطاء'}
+                  ? 'اكتب بريدك الإلكتروني وكلمة المرور للدخول للمنصة'
+                  : tab === 'register'
+                  ? 'اكتب اسمك وأي بريد إلكتروني وأي كلمة مرور ثم اضغط حفظ ودخول'
+                  : 'اكتب بريدك الإلكتروني المسجل وكلمة المرور الجديدة ثم اضغط حفظ والدخول'}
               </span>
             </div>
           </div>
 
-          <div className="p-6 sm:p-7 pt-2 space-y-5">
+          <div className="p-6 sm:p-7 pt-2 space-y-4">
 
-            {/* Luxury Segmented Tabs */}
-            <div className="relative p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80 grid grid-cols-2 shadow-inner">
+            {/* Segmented Mode Selector: Login | Register | Reset Password */}
+            <div className="relative p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80 grid grid-cols-3 gap-1 shadow-inner text-center">
               <button
                 type="button"
                 onClick={() => { setTab('login'); setError(null); }}
-                className={`flex items-center justify-center gap-2 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
                   tab === 'login'
                     ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-700/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                 }`}
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-3.5 h-3.5" />
                 <span>تسجيل الدخول</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setTab('register'); setError(null); }}
-                className={`flex items-center justify-center gap-2 py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold rounded-xl transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
                   tab === 'register'
                     ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-700/30'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
                 }`}
               >
-                <UserPlus className="w-4 h-4" />
-                <span>حساب طالب جديد</span>
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>حساب جديد</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTab('reset'); setError(null); }}
+                className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                  tab === 'reset'
+                    ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white shadow-lg shadow-amber-700/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>إعادة تعيين</span>
               </button>
             </div>
 
-            {/* Error Banner with Smart One-Click Recovery */}
+            {/* Error Banner with Smart Helpful Switch */}
             {error && (
               <div className="p-3.5 bg-rose-950/60 border border-rose-500/60 rounded-2xl text-xs text-rose-200 flex items-start gap-2.5 animate-in fade-in duration-200">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <div className="space-y-2 flex-1">
                   <span className="leading-relaxed block font-semibold">{error}</span>
                   
-                  {/* Instant Password Reset Option */}
-                  {tab === 'login' && (canResetPassword || error.includes('كلمة المرور')) && password.trim().length >= 4 && (
-                    <div className="p-2.5 bg-amber-500/15 border border-amber-500/40 rounded-xl space-y-1.5">
-                      <p className="text-[11px] text-amber-200 font-bold">
-                        💡 هل نسيت كلمة المرور وتريد اعتماد كلمة المرور المكتوبة أعلاه والدخول فوراً؟
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleInstantReset}
-                        disabled={isLoading}
-                        className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-lg shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
-                      >
-                        <KeyRound className="w-3.5 h-3.5" />
-                        <span>اعتماد كلمة المرور هذه والدخول فوراً</span>
-                      </button>
-                    </div>
+                  {/* Shortcut to Reset Password if password issue */}
+                  {tab === 'login' && error.includes('كلمة المرور') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('reset');
+                        setError(null);
+                      }}
+                      className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>اضغط هنا لإعادة تعيين كلمة المرور والدخول فوراً</span>
+                    </button>
                   )}
 
-                  {/* Instant Switch to Register if not found */}
-                  {(isNotRegistered || error.includes('غير مسجل')) && (
-                    <div className="p-2.5 bg-emerald-500/15 border border-emerald-500/40 rounded-xl space-y-1.5">
-                      <p className="text-[11px] text-emerald-200 font-bold">
-                        ✨ هذا البريد غير مسجل، هل تود إنشاء حساب به فوراً؟
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTab('register');
-                          setError(null);
-                        }}
-                        className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>الانتقال لإنشاء حساب بهذا البريد</span>
-                      </button>
-                    </div>
+                  {/* Shortcut to Register if email not found */}
+                  {tab === 'login' && error.includes('غير مسجل') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('register');
+                        setError(null);
+                      }}
+                      className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>اضغط هنا لإنشاء حساب بهذا البريد والدخول فوراً</span>
+                    </button>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Form */}
+            {/* The Unified Smooth Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               
               {/* Full Name (Registration only) */}
               {tab === 'register' && (
                 <div className="space-y-1.5 text-right animate-in fade-in duration-200">
-                  <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
-                    <span>اسم الطالب الكامل</span>
-                    <span className="text-[10px] text-slate-400 font-normal">سيظهر في نتائجك وشهاداتك</span>
+                  <label className="text-xs font-bold text-slate-300 block">
+                    اسم الطالب
                   </label>
                   <div className="relative">
                     <input
@@ -340,7 +325,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="مثال: عبد الله أحمد الشمري"
+                      placeholder="اكتب اسم الطالب هنا"
                       className="w-full pr-11 pl-4 py-3 bg-slate-950/70 border border-slate-700/70 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-right transition-all shadow-inner"
                     />
                     <User className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
@@ -348,40 +333,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {/* Email Address */}
+              {/* Email Address (Any email accepted seamlessly) */}
               <div className="space-y-1.5 text-right">
                 <label className="text-xs font-bold text-slate-300 block">
-                  البريد الإلكتروني
+                  {tab === 'reset' ? 'البريد الإلكتروني (الذي كُتب أثناء إنشاء الحساب)' : 'البريد الإلكتروني'}
                 </label>
                 <div className="relative">
                   <input
-                    type="email"
+                    type="text"
                     required
                     dir="ltr"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="student@example.com"
+                    placeholder={tab === 'reset' ? 'اكتب بريدك الإلكتروني المسجل' : 'اكتب أي بريد إلكتروني هنا'}
                     className="w-full pr-11 pl-4 py-3 bg-slate-950/70 border border-slate-700/70 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-left transition-all shadow-inner"
                   />
                   <Mail className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
                 </div>
               </div>
 
-              {/* Password */}
+              {/* Password Field (Any password accepted seamlessly) */}
               <div className="space-y-1.5 text-right">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-300">
-                    كلمة المرور
+                    {tab === 'reset' ? 'كلمة المرور الجديدة' : 'كلمة المرور'}
                   </label>
                   {tab === 'login' && (
-                    <a
-                      href={whatsappSupportUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => { setTab('reset'); setError(null); }}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
                     >
-                      نسيت كلمة المرور؟
-                    </a>
+                      <KeyRound className="w-3 h-3" />
+                      <span>إعادة تعيين كلمة المرور</span>
+                    </button>
                   )}
                 </div>
                 <div className="relative">
@@ -391,7 +376,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     dir="ltr"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={tab === 'reset' ? 'اكتب كلمة المرور الجديدة' : 'اكتب أي كلمة مرور هنا'}
                     className="w-full pr-11 pl-11 py-3 bg-slate-950/70 border border-slate-700/70 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-left transition-all shadow-inner"
                   />
                   <Lock className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
@@ -407,36 +392,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {tab === 'register' && (
-                  <p className="text-[11px] text-slate-400">
-                    يجب أن تتكون كلمة المرور من 6 أحرف أو أرقام على الأقل.
-                  </p>
-                )}
               </div>
 
-              {/* Confirm Password (Registration Only) */}
-              {tab === 'register' && (
-                <div className="space-y-1.5 text-right">
-                  <label className="text-xs font-bold text-slate-300 block">
-                    تأكيد كلمة المرور
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      dir="ltr"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="أعد كتابة نفس كلمة المرور للتأكيد..."
-                      className="w-full pr-11 pl-4 py-3 bg-slate-950/70 border border-slate-700/70 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-left transition-all shadow-inner"
-                    />
-                    <Lock className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
-                  </div>
-                </div>
-              )}
-
               {/* Remember Me Checkbox */}
-              <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center justify-between pt-0.5">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -446,33 +405,66 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                   <span className="text-xs text-slate-300">تذكر بياناتي على هذا الجهاز</span>
                 </label>
+                {tab === 'reset' && (
+                  <button
+                    type="button"
+                    onClick={() => { setTab('login'); setError(null); }}
+                    className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer underline"
+                  >
+                    العودة لتسجيل الدخول
+                  </button>
+                )}
               </div>
 
-              {/* Luxury Submit CTA Button */}
+              {/* Submit CTA Button */}
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 text-white font-black text-sm shadow-xl shadow-emerald-600/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 group"
+                className={`w-full py-3.5 px-6 rounded-2xl text-white font-black text-sm shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 group ${
+                  tab === 'reset'
+                    ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 shadow-amber-600/30'
+                    : 'bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 shadow-emerald-600/30 hover:shadow-emerald-500/50'
+                }`}
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>جاري التحقق وتأمين تسجيل الدخول...</span>
+                    <span>جاري الحفظ وفتح المنصة...</span>
                   </div>
                 ) : (
                   <>
-                    <span>{tab === 'login' ? 'دخول المنصة التعليمية' : 'إنشاء الحساب وبدء التعلم الآن'}</span>
+                    <span>
+                      {tab === 'login' 
+                        ? 'تسجيل الدخول للمنصة' 
+                        : tab === 'register'
+                        ? 'حفظ ودخول للمنصة'
+                        : 'حفظ كلمة المرور الجديدة والدخول للمنصة'}
+                    </span>
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                   </>
                 )}
               </button>
             </form>
 
+            {/* Quick Switch to Reset Password (if in login mode) */}
+            {tab === 'login' && (
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => { setTab('reset'); setError(null); }}
+                  className="inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-slate-950/70 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-xs text-amber-300 font-bold transition-all cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                  <span>زر إعادة تعيين كلمة المرور</span>
+                </button>
+              </div>
+            )}
+
             {/* VIP Trust Badges */}
-            <div className="pt-4 border-t border-slate-800/70 grid grid-cols-3 gap-2 text-center text-[10px] text-slate-400">
+            <div className="pt-3 border-t border-slate-800/70 grid grid-cols-3 gap-2 text-center text-[10px] text-slate-400">
               <div className="flex flex-col items-center gap-1">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>حماية وتشفير 256-bit</span>
+                <span>حماية وتشفير عالي</span>
               </div>
               <div className="flex flex-col items-center gap-1">
                 <CheckCircle2 className="w-4 h-4 text-teal-400" />
@@ -480,12 +472,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
               <div className="flex flex-col items-center gap-1">
                 <Sparkles className="w-4 h-4 text-emerald-300" />
-                <span>اختبارات وفيديوهات حصرية</span>
+                <span>شروحات واختبارات</span>
               </div>
             </div>
 
             {/* Quick WhatsApp Support */}
-            <div className="flex items-center justify-center pt-1 text-xs text-slate-400">
+            <div className="flex items-center justify-center pt-0.5 text-xs text-slate-400">
               <a
                 href={whatsappSupportUrl}
                 target="_blank"

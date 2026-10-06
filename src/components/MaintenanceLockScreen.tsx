@@ -182,17 +182,17 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
         }
       } else {
         if (!name.trim()) {
-          setAuthError('يرجى إدخال اسم الطالب الكامل (ثنائي أو ثلاثي)');
+          setAuthError('يرجى إدخال اسم الطالب');
           setIsSubmitting(false);
           return;
         }
-        if (!email.trim() || !email.includes('@')) {
-          setAuthError('يرجى إدخال بريد إلكتروني صحيح');
+        if (!email.trim()) {
+          setAuthError('يرجى إدخال البريد الإلكتروني');
           setIsSubmitting(false);
           return;
         }
-        if (password.length < 4) {
-          setAuthError('كلمة المرور يجب أن لا تقل عن 4 خانات أو أحرف');
+        if (!password) {
+          setAuthError('يرجى كتابة كلمة المرور');
           setIsSubmitting(false);
           return;
         }

@@ -1348,8 +1348,14 @@ export const apiService = {
   },
 
   // Auth & Student Progress: Synchronized to Firebase Firestore
+  formatStudentEmail(email: string): string {
+    const trimmed = (email || '').trim().toLowerCase();
+    if (!trimmed) return '';
+    return trimmed.includes('@') ? trimmed : `${trimmed}@tamayuz.edu`;
+  },
+
   async login(email: string, password: string, forceReset = false): Promise<StudentUser> {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = this.formatStudentEmail(email);
     const localSavedBookmarks = this.getLocalStudentBookmarks(cleanEmail);
     const localSavedFolders = this.getLocalQuestionFolders(cleanEmail);
 
@@ -1486,8 +1492,8 @@ export const apiService = {
   },
 
   async register(name: string, email: string, password: string): Promise<StudentUser> {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName = name.trim();
+    const cleanEmail = this.formatStudentEmail(email);
+    const cleanName = (name || '').trim() || cleanEmail.split('@')[0] || 'طالب متميز';
     const localSavedBookmarks = this.getLocalStudentBookmarks(cleanEmail);
     const localSavedFolders = this.getLocalQuestionFolders(cleanEmail);
 

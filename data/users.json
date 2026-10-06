@@ -1018,6 +1018,30 @@
           }
         ]
       }
+    },
+    {
+      "id": "usr-1791285077537",
+      "name": "أحمد الفهد",
+      "email": "ahmed_super_fast@tamayuz.edu",
+      "role": "student",
+      "passwordHash": "ed14e7636f82cd7ca7b11b82c0ad36a5:b8a5b5620098390160d7d9c04c91e2f1c51b20f5c4a3ecf19bddfdcec7349a707daea110719e5acffaed8dbff4002a4c7aee08e9bcdcf9cb9e71ea0cac32de79",
+      "createdAt": "2026-10-06T11:11:17.580Z",
+      "progress": {
+        "completedVideoIds": [],
+        "completedQuizAttempts": [],
+        "bookmarkedResourceIds": [],
+        "questionFolders": [
+          {
+            "id": "folder-mistakes-permanent",
+            "name": "مجلد أخطائي",
+            "createdAt": "2026-10-06T11:11:17.581Z",
+            "color": "rose",
+            "isPermanent": true,
+            "isMistakesFolder": true,
+            "questions": []
+          }
+        ]
+      }
     }
   ]
 }
