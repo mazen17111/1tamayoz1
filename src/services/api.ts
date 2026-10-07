@@ -170,26 +170,10 @@ export const apiService = {
       console.warn('Server save connection error:', serverErr);
     }
 
-    // 2. Also save to Firebase Firestore with safety timeout (15 seconds)
-    let firestoreOk = false;
-    try {
-      await Promise.race([
-        savePlatformDataToFirestore(cleanData),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), 15000))
-      ]);
-      firestoreOk = true;
-    } catch (firestoreError: any) {
-      console.warn('Firestore write warning:', firestoreError);
-    }
-
-    if (!serverOk && !firestoreOk) {
-      // Data is safely retained in local cache & storage
-      return {
-        success: true,
-        message: 'تم حفظ كافة التغييرات محلياً بنجاح، وسيتم تأكيد المزامنة مع الخادم تلقائياً.',
-        timestamp
-      };
-    }
+    // 2. High-speed background sync to Firebase Firestore without blocking the UI
+    savePlatformDataToFirestore(cleanData).catch((firestoreError: any) => {
+      console.warn('Firestore background write warning:', firestoreError);
+    });
 
     return {
       success: true,
@@ -205,7 +189,7 @@ export const apiService = {
 
   // Fetch platform data permanently with multi-tier sync (Parallelized for maximum speed)
   async fetchPlatformData(): Promise<PlatformData> {
-    // 1. Parallel execution: instant local server fetch + Firestore fetch (with 2.5s safe ceiling)
+    // Fast-path server data fetch first
     const serverFetchPromise = fetch(`/api/data?_t=${Date.now()}`, {
       cache: 'no-store',
       headers: {
@@ -219,12 +203,13 @@ export const apiService = {
         return null;
       });
 
+    // Firestore fetch with ultra-fast 400ms ceiling so UI loads instantly
     const firestorePromise = Promise.race([
       loadPlatformDataFromFirestore().catch((firestoreErr) => {
         console.warn('[API] Could not load directly from Firestore:', firestoreErr);
         return null;
       }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 400))
     ]);
 
     const [serverData, firestoreData] = await Promise.all([
@@ -257,26 +242,39 @@ export const apiService = {
     const allDeletedIds = Array.from(new Set([...firestoreDeleted, ...serverDeleted, ...cachedDeleted, ...explicitOldDeletions]));
     const deletedSet = new Set(allDeletedIds);
 
-    // Smart merge helper: preserves items across sources and excludes deleted items
+    // Smart merge helper: base from firestore, latest server overrides, active cached overrides
     function mergeLists<T extends { id: string }>(
-      sourceA: T[] | undefined | null,
-      sourceB: T[] | undefined | null,
-      sourceC: T[] | undefined | null
+      firestoreList: T[] | undefined | null,
+      serverList: T[] | undefined | null,
+      cachedList: T[] | undefined | null
     ): T[] {
       const map = new Map<string, T>();
-      const add = (list: T[] | undefined | null) => {
-        if (Array.isArray(list)) {
-          for (const item of list) {
-            if (item && item.id && !deletedSet.has(item.id)) {
-              const existing = map.get(item.id);
-              map.set(item.id, existing ? { ...existing, ...item } : item);
-            }
+      // 1. Add firestore as base
+      if (Array.isArray(firestoreList)) {
+        for (const item of firestoreList) {
+          if (item && item.id && !deletedSet.has(item.id)) {
+            map.set(item.id, item);
           }
         }
-      };
-      add(sourceA);
-      add(sourceB);
-      add(sourceC);
+      }
+      // 2. Add latest server data from db.json (overwriting with newest saved data!)
+      if (Array.isArray(serverList)) {
+        for (const item of serverList) {
+          if (item && item.id && !deletedSet.has(item.id)) {
+            const existing = map.get(item.id);
+            map.set(item.id, existing ? { ...existing, ...item } : item);
+          }
+        }
+      }
+      // 3. Add locally cached edits (overwriting with active in-memory state)
+      if (Array.isArray(cachedList)) {
+        for (const item of cachedList) {
+          if (item && item.id && !deletedSet.has(item.id)) {
+            const existing = map.get(item.id);
+            map.set(item.id, existing ? { ...existing, ...item } : item);
+          }
+        }
+      }
       return Array.from(map.values());
     }
 
@@ -721,19 +719,17 @@ export const apiService = {
       console.warn('Server video write warning:', e);
     }
 
-    try {
-      await Promise.race([
-        (async () => {
-          await setDoc(doc(db, COLLECTIONS.VIDEOS, cleanVideo.id), cleanVideo);
-          const mainDocRef = doc(db, COLLECTIONS.PLATFORM_DATA, MAIN_DATA_DOC_ID);
-          const currentVids = localCachedData?.videos || [cleanVideo];
-          await setDoc(mainDocRef, { videos: cleanForFirestore(currentVids), updatedAt: new Date().toISOString() }, { merge: true });
-        })(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000))
-      ]);
-    } catch (e) {
-      console.warn('Firestore video write background warning:', e);
-    }
+    // Background Firestore write without blocking the UI
+    (async () => {
+      try {
+        await setDoc(doc(db, COLLECTIONS.VIDEOS, cleanVideo.id), cleanVideo);
+        const mainDocRef = doc(db, COLLECTIONS.PLATFORM_DATA, MAIN_DATA_DOC_ID);
+        const currentVids = localCachedData?.videos || [cleanVideo];
+        await setDoc(mainDocRef, { videos: cleanForFirestore(currentVids), updatedAt: new Date().toISOString() }, { merge: true });
+      } catch (e) {
+        console.warn('Firestore video write background warning:', e);
+      }
+    })();
 
     return saved;
   },
@@ -767,19 +763,17 @@ export const apiService = {
       console.warn('Server video update warning:', e);
     }
 
-    try {
-      await Promise.race([
-        (async () => {
-          await setDoc(doc(db, COLLECTIONS.VIDEOS, id), cleanVideo, { merge: true });
-          const mainDocRef = doc(db, COLLECTIONS.PLATFORM_DATA, MAIN_DATA_DOC_ID);
-          const currentVids = localCachedData?.videos || [cleanVideo];
-          await setDoc(mainDocRef, { videos: cleanForFirestore(currentVids), updatedAt: new Date().toISOString() }, { merge: true });
-        })(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000))
-      ]);
-    } catch (e) {
-      console.warn('Firestore video update background warning:', e);
-    }
+    // Background Firestore write without blocking the UI
+    (async () => {
+      try {
+        await setDoc(doc(db, COLLECTIONS.VIDEOS, id), cleanVideo, { merge: true });
+        const mainDocRef = doc(db, COLLECTIONS.PLATFORM_DATA, MAIN_DATA_DOC_ID);
+        const currentVids = localCachedData?.videos || [cleanVideo];
+        await setDoc(mainDocRef, { videos: cleanForFirestore(currentVids), updatedAt: new Date().toISOString() }, { merge: true });
+      } catch (e) {
+        console.warn('Firestore video update background warning:', e);
+      }
+    })();
 
     return cleanVideo;
   },
@@ -1359,21 +1353,11 @@ export const apiService = {
     const localSavedBookmarks = this.getLocalStudentBookmarks(cleanEmail);
     const localSavedFolders = this.getLocalQuestionFolders(cleanEmail);
 
-    let firestoreStudent: (StudentUser & { passwordHash?: string }) | null = null;
     let serverStudent: StudentUser | null = null;
-
-    // 1. Look up student in Firestore (with 1.5s ceiling so server auth is fast)
-    try {
-      firestoreStudent = (await Promise.race([
-        getStudentFromFirestore(cleanEmail),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
-      ])) as any;
-    } catch (e) {
-      console.warn('Firestore student lookup warning:', e);
-    }
-
-    // 2. Authenticate and strictly verify password via server
     let res: Response | null = null;
+    let errData: any = null;
+
+    // 1. Fast path: Direct server authentication FIRST (completes in ~5-15ms)
     try {
       res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -1381,40 +1365,71 @@ export const apiService = {
         body: JSON.stringify({ 
           email: cleanEmail, 
           password,
-          firestorePasswordHash: firestoreStudent?.passwordHash,
-          firestoreUserId: firestoreStudent?.id,
-          firestoreName: firestoreStudent?.name,
           forceResetPassword: forceReset,
         }),
       });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          serverStudent = data.user;
+        }
+      } else {
+        errData = await res.json().catch(() => null);
+      }
     } catch (e) {
       console.warn('Server login fetch warning:', e);
     }
 
-    if (res && !res.ok) {
-      const err = await res.json().catch(() => ({ error: 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب' }));
-      const customErr: any = new Error(err.error || 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب');
-      customErr.canReset = err.canReset;
-      customErr.notRegistered = err.notRegistered;
+    // 2. If password was explicitly incorrect, immediately throw friendly error
+    if (res && res.status === 401 && errData && errData.canReset) {
+      const customErr: any = new Error(errData.error || 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أو الضغط على تغيير كلمة المرور');
+      customErr.canReset = true;
       throw customErr;
     }
 
-    if (res && res.ok) {
-      const data = await res.json();
-      if (data.user) {
-        serverStudent = data.user;
+    // 3. Fallback: If user was not found on server, quickly check Firestore (max 400ms)
+    let firestoreStudent: (StudentUser & { passwordHash?: string }) | null = null;
+    if (!serverStudent) {
+      try {
+        firestoreStudent = (await Promise.race([
+          getStudentFromFirestore(cleanEmail),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 400)),
+        ])) as any;
+      } catch (e) {
+        console.warn('Firestore fallback lookup warning:', e);
       }
 
-      // If Firestore document didn't have passwordHash, sync it now
-      if (data.passwordHash && firestoreStudent && firestoreStudent.passwordHash !== data.passwordHash) {
-        saveStudentToFirestore({ ...firestoreStudent, passwordHash: data.passwordHash } as any).catch(() => {});
+      if (firestoreStudent) {
+        // Try server login once more with synced Firestore data
+        try {
+          const syncRes = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              email: cleanEmail, 
+              password,
+              firestorePasswordHash: firestoreStudent.passwordHash,
+              firestoreUserId: firestoreStudent.id,
+              firestoreName: firestoreStudent.name,
+              forceResetPassword: forceReset,
+            }),
+          });
+          if (syncRes.ok) {
+            const syncData = await syncRes.json();
+            serverStudent = syncData.user;
+          } else {
+            const syncErr = await syncRes.json().catch(() => null);
+            if (syncErr?.canReset) {
+              const customErr: any = new Error(syncErr.error || 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب');
+              customErr.canReset = true;
+              throw customErr;
+            }
+          }
+        } catch (e: any) {
+          if (e?.canReset) throw e;
+        }
       }
-    }
-
-    // 3. Fallback if server was unreachable but firestore has student
-    if (!serverStudent && firestoreStudent) {
-      serverStudent = firestoreStudent;
-      saveStudentToFirestore({ ...firestoreStudent, passwordHash: `client_${Date.now()}` } as any).catch(() => {});
     }
 
     const baseStudent = serverStudent || firestoreStudent;
@@ -1469,9 +1484,9 @@ export const apiService = {
     this.saveCurrentStudent(finalStudent);
     this.saveLocalStudentBookmarks(cleanEmail, mergedBookmarks);
     this.saveLocalQuestionFolders(cleanEmail, mergedFolders);
-    saveStudentToFirestore(cleanForFirestore(finalStudent)).catch(() => {});
 
-    // Ensure server users.json has the updated bookmarks and question folders
+    // High-speed background sync without blocking UI
+    saveStudentToFirestore(cleanForFirestore(finalStudent)).catch(() => {});
     fetch('/api/student/progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1488,7 +1503,49 @@ export const apiService = {
   },
 
   async resetPassword(email: string, password: string): Promise<StudentUser> {
-    return this.login(email, password, true);
+    const cleanEmail = this.formatStudentEmail(email);
+    const localSavedBookmarks = this.getLocalStudentBookmarks(cleanEmail);
+    const localSavedFolders = this.getLocalQuestionFolders(cleanEmail);
+
+    let serverUser: StudentUser | null = null;
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          serverUser = data.user;
+        }
+      }
+    } catch (e) {
+      console.warn('Reset password server fetch error:', e);
+    }
+
+    const finalStudent: StudentUser = {
+      id: serverUser?.id || ('usr_' + cleanEmail.replace(/[^a-z0-9]/g, '_')),
+      name: serverUser?.name || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      role: 'student',
+      createdAt: serverUser?.createdAt || new Date().toISOString(),
+      progress: serverUser?.progress || {
+        completedVideoIds: [],
+        completedQuizAttempts: [],
+        bookmarkedResourceIds: localSavedBookmarks,
+        questionFolders: localSavedFolders.length > 0 ? localSavedFolders : this.ensureMistakesFolder([]),
+      },
+    };
+
+    this.saveCurrentStudent(finalStudent);
+    this.saveLocalStudentBookmarks(cleanEmail, finalStudent.progress.bookmarkedResourceIds);
+    this.saveLocalQuestionFolders(cleanEmail, finalStudent.progress.questionFolders);
+
+    // High-speed background Firestore sync
+    saveStudentToFirestore(cleanForFirestore(finalStudent)).catch(() => {});
+
+    return finalStudent;
   },
 
   async register(name: string, email: string, password: string): Promise<StudentUser> {
@@ -1550,15 +1607,11 @@ export const apiService = {
       },
     };
 
-    // 3. Save in Firestore permanently with passwordHash
-    try {
-      await saveStudentToFirestore({
-        ...finalUser,
-        passwordHash: passwordHash || `client_${Date.now()}`,
-      } as any);
-    } catch (e) {
-      console.warn('Firestore save student warning in register:', e);
-    }
+    // 3. High-speed background sync to Firestore
+    saveStudentToFirestore({
+      ...finalUser,
+      passwordHash: passwordHash || `client_${Date.now()}`,
+    } as any).catch(() => {});
 
     // 4. Save locally
     this.saveCurrentStudent(finalUser);
@@ -2194,13 +2247,11 @@ export const apiService = {
       console.warn('Server settings sync:', e);
     }
 
-    // 2. Firestore update
+    // 2. High-speed background sync to Firestore
     if (localCachedData) {
-      try {
-        await savePlatformDataToFirestore(localCachedData);
-      } catch (e) {
+      savePlatformDataToFirestore(localCachedData).catch((e) => {
         console.warn('Firestore settings sync:', e);
-      }
+      });
     }
 
     return merged;

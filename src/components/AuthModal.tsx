@@ -354,21 +354,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {/* Password Field (Any password accepted seamlessly) */}
               <div className="space-y-1.5 text-right">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-300">
-                    {tab === 'reset' ? 'كلمة المرور الجديدة' : 'كلمة المرور'}
-                  </label>
-                  {tab === 'login' && (
-                    <button
-                      type="button"
-                      onClick={() => { setTab('reset'); setError(null); }}
-                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <KeyRound className="w-3 h-3" />
-                      <span>إعادة تعيين كلمة المرور</span>
-                    </button>
-                  )}
-                </div>
+                <label className="text-xs font-bold text-slate-300 block">
+                  {tab === 'reset' ? 'كلمة المرور الجديدة' : 'كلمة المرور'}
+                </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -392,6 +380,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+
+                {/* Subtle Reset Password link directly under the password field as requested */}
+                {tab === 'login' && (
+                  <div className="flex items-center justify-start pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('reset');
+                        setError(null);
+                      }}
+                      className="text-xs text-slate-400 hover:text-slate-200 transition-colors font-medium flex items-center gap-1.5 cursor-pointer py-0.5 select-none"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                      <span>تغيير كلمة المرور</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Remember Me Checkbox */}
@@ -409,9 +414,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <button
                     type="button"
                     onClick={() => { setTab('login'); setError(null); }}
-                    className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer underline"
+                    className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer underline flex items-center gap-1"
                   >
-                    العودة لتسجيل الدخول
+                    <span>العودة لتسجيل الدخول</span>
                   </button>
                 )}
               </div>
@@ -420,11 +425,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full py-3.5 px-6 rounded-2xl text-white font-black text-sm shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 group ${
-                  tab === 'reset'
-                    ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 shadow-amber-600/30'
-                    : 'bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 shadow-emerald-600/30 hover:shadow-emerald-500/50'
-                }`}
+                className="w-full py-3.5 px-6 rounded-2xl text-white font-black text-sm shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 group bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 shadow-emerald-600/30 hover:shadow-emerald-500/50"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
@@ -438,27 +439,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         ? 'تسجيل الدخول للمنصة' 
                         : tab === 'register'
                         ? 'حفظ ودخول للمنصة'
-                        : 'حفظ كلمة المرور الجديدة والدخول للمنصة'}
+                        : 'حفظ كلمة المرور والدخول للمنصة'}
                     </span>
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                   </>
                 )}
               </button>
             </form>
-
-            {/* Quick Switch to Reset Password (if in login mode) */}
-            {tab === 'login' && (
-              <div className="pt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => { setTab('reset'); setError(null); }}
-                  className="inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-slate-950/70 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-xs text-amber-300 font-bold transition-all cursor-pointer"
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                  <span>زر إعادة تعيين كلمة المرور</span>
-                </button>
-              </div>
-            )}
 
             {/* VIP Trust Badges */}
             <div className="pt-3 border-t border-slate-800/70 grid grid-cols-3 gap-2 text-center text-[10px] text-slate-400">
