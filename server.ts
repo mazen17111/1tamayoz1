@@ -1810,14 +1810,23 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
       usersData = loadUsers();
       let user = usersData.users.find((u) => u.email.toLowerCase() === cleanEmail || u.email.toLowerCase() === rawEmail);
 
-      // If student is in Firestore but not yet in local users.json, sync them
+      // If student is in Firestore but not yet in local users.json, sync them only if password matches or reset requested
       if (!user && (firestoreUserId || firestoreName || firestorePasswordHash)) {
+        const isMatch = firestorePasswordHash ? verifyPassword(password, firestorePasswordHash) : false;
+        if (!forceResetPassword && !isMatch) {
+          return res.status(401).json({ 
+            error: 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أثناء إنشاء الحساب أو النقر على "تغيير كلمة المرور"',
+            canReset: true,
+            email: cleanEmail
+          });
+        }
+
         const syncedUser = {
           id: firestoreUserId || `usr-${Date.now()}`,
           name: firestoreName || cleanEmail.split('@')[0],
           email: cleanEmail,
           role: 'student' as const,
-          passwordHash: firestorePasswordHash || hashPassword(password),
+          passwordHash: isMatch ? (firestorePasswordHash as string) : hashPassword(password),
           createdAt: new Date().toISOString(),
           progress: {
             completedVideoIds: [],
@@ -1856,21 +1865,22 @@ function persistBase64Image(dataUriOrUrl?: string, prefix: string = 'quiz-img'):
         return res.json({ user: safeUser, passwordHash: user.passwordHash, reset: true });
       }
 
-      // If user has no passwordHash recorded yet (legacy account), record this password
-      if (!user.passwordHash) {
-        user.passwordHash = hashPassword(password);
+      // Verify password strictly against user.passwordHash or firestorePasswordHash
+      const hasStoredHash = Boolean(user.passwordHash && user.passwordHash.trim());
+      const isLocalValid = hasStoredHash ? verifyPassword(password, user.passwordHash) : false;
+      const isFirestoreValid = firestorePasswordHash ? verifyPassword(password, firestorePasswordHash) : false;
+
+      // If user had no local hash but Firestore has a valid hash matching the password:
+      if (!hasStoredHash && isFirestoreValid && firestorePasswordHash) {
+        user.passwordHash = firestorePasswordHash;
         saveUsers(usersData);
         const { passwordHash: _, ...safeUser } = user;
         return res.json({ user: safeUser, passwordHash: user.passwordHash });
       }
 
-      // Verify password strictly against user.passwordHash or firestorePasswordHash
-      const isLocalValid = verifyPassword(password, user.passwordHash);
-      const isFirestoreValid = firestorePasswordHash ? verifyPassword(password, firestorePasswordHash) : false;
-
       if (!isLocalValid && !isFirestoreValid) {
         return res.status(401).json({ 
-          error: 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أثناء إنشاء الحساب',
+          error: 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أثناء إنشاء الحساب أو النقر على "تغيير كلمة المرور"',
           canReset: true,
           email: cleanEmail
         });

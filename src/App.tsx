@@ -40,7 +40,13 @@ export default function App() {
       let effectiveTheme = initialPlatformData.settings?.theme;
       if (savedThemeRaw) {
         try {
-          effectiveTheme = { ...effectiveTheme, ...JSON.parse(savedThemeRaw) };
+          const parsed = JSON.parse(savedThemeRaw);
+          if (parsed && (parsed.preset === 'cyan-ocean' || parsed.preset === 'royal-blue' || parsed.id === 'cyan-ocean' || parsed.id === 'royal-blue')) {
+            safeStorage.removeItem('tamayuz_platform_theme');
+            effectiveTheme = { ...effectiveTheme, preset: 'emerald', id: 'emerald', primaryColor: 'emerald' };
+          } else {
+            effectiveTheme = { ...effectiveTheme, ...parsed };
+          }
         } catch {}
       }
       if (savedPresetRaw && effectiveTheme) {
@@ -697,11 +703,11 @@ export default function App() {
     new Date(effectiveSubscriptionExpiresAt).getTime() <= Date.now()
   );
 
-  // Guest lockdown: completely lock all videos, files, quizzes and content for non-logged in users as explicitly requested!
-  const isGuestLocked = !currentUser;
+  // Guest status
+  const isGuestLocked = false;
 
-  // If guest OR individually blocked OR subscription expired OR (locked and not admin/approved) and not in admin dashboard, show lock screen
-  const showLockScreen = !isAdminOpen && (isGuestLocked || isIndividuallyBlocked || isSubscriptionExpired || (isPlatformLocked && !isCurrentUserApproved));
+  // Show lock screen ONLY if user is individually blocked, or subscription expired, or platform is in maintenance (and visitor is not admin/approved)
+  const showLockScreen = !isAdminOpen && (isIndividuallyBlocked || isSubscriptionExpired || (isPlatformLocked && !isCurrentUserApproved));
 
   // Theme and layout configuration: instant resolution so saved layout appears immediately with 0 delay or flash
   const savedLayoutPreset = typeof window !== 'undefined' ? safeStorage.getItem('tamayuz_layout_preset') : null;
@@ -717,7 +723,8 @@ export default function App() {
     ? (rawLayoutPreset as PlatformLayoutPreset)
     : 'sidebar-split-right';
 
-  const themePreset = savedThemeConfig?.preset || platformData.settings?.theme?.preset || 'emerald';
+  const rawThemePreset = savedThemeConfig?.preset || platformData.settings?.theme?.preset || 'emerald';
+  const themePreset = (rawThemePreset === 'cyan-ocean' || rawThemePreset === 'royal-blue') ? 'emerald' : rawThemePreset;
   const borderRadius = savedThemeConfig?.borderRadius || platformData.settings?.theme?.borderRadius || 'standard';
   const density = savedThemeConfig?.density || platformData.settings?.theme?.density || 'comfortable';
   const fontScale = savedThemeConfig?.fontScale || platformData.settings?.theme?.fontScale || 'normal';
@@ -728,8 +735,8 @@ export default function App() {
       {/* In-App Browser Helper (Telegram, WhatsApp, WebViews) */}
       <InAppBrowserBanner onShowToast={showToast} />
 
-      {/* Top Navigation - Only visible when user is authenticated, not in lock screen, and not in auth modal */}
-      {(!isGuestLocked || isAdminOpen) && !showLockScreen && !isAuthModalOpen && (
+      {/* Top Navigation - Visible when not in lock screen and not in auth modal */}
+      {(!showLockScreen || isAdminOpen) && !isAuthModalOpen && (
         <Navbar
           currentUser={currentUser ? {
             ...currentUser,
@@ -758,8 +765,8 @@ export default function App() {
         />
       )}
 
-      {/* Global Announcement Alert Bar - Only visible inside platform when logged in and active */}
-      {(!isGuestLocked || isAdminOpen) && !showLockScreen && !isAuthModalOpen && (
+      {/* Global Announcement Alert Bar - Visible inside platform */}
+      {(!showLockScreen || isAdminOpen) && !isAuthModalOpen && (
         <AnnouncementBanner announcement={platformData.settings?.announcement} />
       )}
 
@@ -889,7 +896,7 @@ export default function App() {
       )}
 
       {/* Footer - Only visible when inside platform */}
-      {(!isGuestLocked || isAdminOpen) && (
+      {(!showLockScreen || isAdminOpen) && (
         <footer className="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-6 sm:py-8 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">
           <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2.5">

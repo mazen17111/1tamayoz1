@@ -108,12 +108,14 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
   // Currently playing video ID inside the right-hand studio player (Starts NULL, never auto-opens)
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
-  // When section changes, reset resource to the section's first resource and reset video
+  // When section changes or section resources load, ensure a valid resource is selected and reset video
   useEffect(() => {
-    const firstRes = sectionResources[0]?.id || '';
-    setSelectedResourceId(firstRes);
+    if (!selectedResourceId || !sectionResources.some((r) => r.id === selectedResourceId)) {
+      const firstRes = sectionResources[0]?.id || '';
+      setSelectedResourceId(firstRes);
+    }
     setSelectedVideoId(null);
-  }, [activeSectionId]);
+  }, [activeSectionId, sectionResources]);
 
   // When resource changes, reset selected video so it does not open automatically
   useEffect(() => {

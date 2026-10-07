@@ -500,15 +500,15 @@
   ],
   "settings": {
     "theme": {
-      "primaryColor": "cyan-ocean",
+      "primaryColor": "emerald",
       "sectionsLayout": "grid",
       "headerStyle": "glassmorphism",
       "layoutPreset": "sidebar-split-right",
       "borderRadius": "compact",
-      "id": "cyan-ocean",
-      "updatedAt": "2026-09-28T16:41:55.839Z",
-      "preset": "cyan-ocean",
-      "name": "الزمردي الأكاديمي الكلاسيكي",
+      "id": "emerald",
+      "updatedAt": "2026-10-07T16:22:52.764Z",
+      "preset": "emerald",
+      "name": "الأخضر الزمردي الملكي",
       "density": "compact",
       "fontScale": "large",
       "cardStyle": "bordered",
@@ -544,32 +544,32 @@
       "blockedStudentEmails": [],
       "whatsappNumber": "",
       "lockReason": "maintenance",
-      "updatedAt": "2026-09-28T16:41:55.839Z",
+      "updatedAt": "2026-10-07T16:22:52.764Z",
       "studentSubscriptions": {
         "mktm22@gmail.com": {
-          "startedAt": "2026-09-27T10:51:02.494Z",
-          "expiresAt": "2026-10-02T10:51:02.494Z",
-          "days": 5
+          "startedAt": "2026-10-07T16:22:52.764Z",
+          "expiresAt": "2027-10-07T00:00:00.000Z",
+          "days": 365
         },
         "magedmahrous2019@gmail.com": {
-          "startedAt": "2026-09-28T11:55:10.422Z",
-          "expiresAt": "2026-10-05T11:55:10.422Z",
-          "days": 7
+          "startedAt": "2026-10-07T16:22:52.764Z",
+          "expiresAt": "2027-10-07T00:00:00.000Z",
+          "days": 365
         },
         "mazenmahrous31@gmail.com": {
-          "expiresAt": "2026-10-04T12:28:44.307Z",
-          "days": 7,
-          "startedAt": "2026-09-27T12:28:44.307Z"
+          "expiresAt": "2027-10-07T00:00:00.000Z",
+          "days": 365,
+          "startedAt": "2026-10-07T16:22:52.764Z"
         },
         "ommazen41989@gmail.com": {
-          "expiresAt": "2026-10-27T10:05:43.648Z",
-          "days": 30,
-          "startedAt": "2026-09-27T10:05:43.648Z"
+          "expiresAt": "2027-10-07T00:00:00.000Z",
+          "days": 365,
+          "startedAt": "2026-10-07T16:22:52.764Z"
         },
         "fares14464@gmail.com": {
-          "days": 1,
-          "expiresAt": "2026-09-29T13:01:12.075Z",
-          "startedAt": "2026-09-28T13:01:12.075Z"
+          "days": 365,
+          "expiresAt": "2027-10-07T00:00:00.000Z",
+          "startedAt": "2026-10-07T16:22:52.764Z"
         }
       },
       "allowedStudentEmails": [],

@@ -242,18 +242,28 @@ export const apiService = {
     const allDeletedIds = Array.from(new Set([...firestoreDeleted, ...serverDeleted, ...cachedDeleted, ...explicitOldDeletions]));
     const deletedSet = new Set(allDeletedIds);
 
-    // Smart merge helper: base from firestore, latest server overrides, active cached overrides
+    // Smart merge helper: base from initialPlatformData, reinforced by firestore, latest server overrides, active cached overrides
     function mergeLists<T extends { id: string }>(
+      baseList: T[] | undefined | null,
       firestoreList: T[] | undefined | null,
       serverList: T[] | undefined | null,
       cachedList: T[] | undefined | null
     ): T[] {
       const map = new Map<string, T>();
-      // 1. Add firestore as base
+      // 0. Base from initialPlatformData
+      if (Array.isArray(baseList)) {
+        for (const item of baseList) {
+          if (item && item.id && !deletedSet.has(item.id)) {
+            map.set(item.id, item);
+          }
+        }
+      }
+      // 1. Add firestore
       if (Array.isArray(firestoreList)) {
         for (const item of firestoreList) {
           if (item && item.id && !deletedSet.has(item.id)) {
-            map.set(item.id, item);
+            const existing = map.get(item.id);
+            map.set(item.id, existing ? { ...existing, ...item } : item);
           }
         }
       }
@@ -278,10 +288,10 @@ export const apiService = {
       return Array.from(map.values());
     }
 
-    const mergedSections = mergeLists(firestoreData?.sections, serverData?.sections, localCachedData?.sections);
-    const mergedResources = mergeLists(firestoreData?.resources, serverData?.resources, localCachedData?.resources);
-    const mergedVideos = mergeLists(firestoreData?.videos, serverData?.videos, localCachedData?.videos);
-    const mergedFiles = mergeLists(firestoreData?.files, serverData?.files, localCachedData?.files);
+    const mergedSections = mergeLists(initialPlatformData.sections, firestoreData?.sections, serverData?.sections, localCachedData?.sections);
+    const mergedResources = mergeLists(initialPlatformData.resources, firestoreData?.resources, serverData?.resources, localCachedData?.resources);
+    const mergedVideos = mergeLists(initialPlatformData.videos, firestoreData?.videos, serverData?.videos, localCachedData?.videos);
+    const mergedFiles = mergeLists(initialPlatformData.files, firestoreData?.files, serverData?.files, localCachedData?.files);
     const normalizedFiles = mergedFiles.map(f => {
       let url = f.fileUrl || '';
       if (url.startsWith('file://') || url.includes('C:/Users/')) {
@@ -293,7 +303,7 @@ export const apiService = {
       }
       return { ...f, fileUrl: url };
     });
-    const mergedQuizzes = mergeLists(firestoreData?.quizzes, serverData?.quizzes, localCachedData?.quizzes);
+    const mergedQuizzes = mergeLists(initialPlatformData.quizzes, firestoreData?.quizzes, serverData?.quizzes, localCachedData?.quizzes);
 
     const liveStream = firestoreData?.liveStream || serverData?.liveStream || localCachedData?.liveStream || initialPlatformData.liveStream || {
       isEnabled: false,
@@ -308,6 +318,10 @@ export const apiService = {
       try {
         const item = safeStorage.getItem('tamayuz_platform_theme');
         const theme = item ? JSON.parse(item) : null;
+        if (theme && (theme.preset === 'cyan-ocean' || theme.preset === 'royal-blue' || theme.id === 'cyan-ocean' || theme.id === 'royal-blue')) {
+          safeStorage.removeItem('tamayuz_platform_theme');
+          return null;
+        }
         const preset = safeStorage.getItem('tamayuz_layout_preset');
         if (preset && theme) {
           theme.layoutPreset = preset;
@@ -346,13 +360,13 @@ export const apiService = {
         })
       : (serverAccess || firestoreAccess || cachedAccess || defaultPlatformSettings.access);
 
-    // Theme resolution: pick the latest saved theme by timestamp across all sources
+    // Theme resolution: pick the latest saved theme by timestamp across all sources, strictly excluding old blue presets
     const candidateThemes = [
       localSavedTheme,
       localCachedData?.settings?.theme,
       serverData?.settings?.theme,
       firestoreData?.settings?.theme,
-    ].filter(Boolean) as PlatformThemeConfig[];
+    ].filter(Boolean).filter((t: any) => t.preset !== 'cyan-ocean' && t.preset !== 'royal-blue' && t.id !== 'cyan-ocean' && t.id !== 'royal-blue') as PlatformThemeConfig[];
 
     const resolvedTheme = candidateThemes.length > 0
       ? candidateThemes.reduce((prev, curr) => {
@@ -1381,14 +1395,14 @@ export const apiService = {
       console.warn('Server login fetch warning:', e);
     }
 
-    // 2. If password was explicitly incorrect, immediately throw friendly error
-    if (res && res.status === 401 && errData && errData.canReset) {
-      const customErr: any = new Error(errData.error || 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أو الضغط على تغيير كلمة المرور');
+    // 2. If user exists on server and password was incorrect, immediately throw error
+    if (res && res.status === 401 && !errData?.notRegistered) {
+      const customErr: any = new Error(errData?.error || 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أثناء إنشاء الحساب أو النقر على "تغيير كلمة المرور"');
       customErr.canReset = true;
       throw customErr;
     }
 
-    // 3. Fallback: If user was not found on server, quickly check Firestore (max 400ms)
+    // 3. Fallback: ONLY if user was not registered on server, check Firestore (max 400ms)
     let firestoreStudent: (StudentUser & { passwordHash?: string }) | null = null;
     if (!serverStudent) {
       try {
@@ -1402,42 +1416,38 @@ export const apiService = {
 
       if (firestoreStudent) {
         // Try server login once more with synced Firestore data
-        try {
-          const syncRes = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              email: cleanEmail, 
-              password,
-              firestorePasswordHash: firestoreStudent.passwordHash,
-              firestoreUserId: firestoreStudent.id,
-              firestoreName: firestoreStudent.name,
-              forceResetPassword: forceReset,
-            }),
-          });
-          if (syncRes.ok) {
-            const syncData = await syncRes.json();
-            serverStudent = syncData.user;
-          } else {
-            const syncErr = await syncRes.json().catch(() => null);
-            if (syncErr?.canReset) {
-              const customErr: any = new Error(syncErr.error || 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب');
-              customErr.canReset = true;
-              throw customErr;
-            }
-          }
-        } catch (e: any) {
-          if (e?.canReset) throw e;
+        const syncRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: cleanEmail, 
+            password,
+            firestorePasswordHash: firestoreStudent.passwordHash,
+            firestoreUserId: firestoreStudent.id,
+            firestoreName: firestoreStudent.name,
+            forceResetPassword: forceReset,
+          }),
+        });
+
+        if (syncRes.ok) {
+          const syncData = await syncRes.json();
+          serverStudent = syncData.user;
+        } else {
+          const syncErr = await syncRes.json().catch(() => null);
+          const customErr: any = new Error(syncErr?.error || 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب أو النقر على "تغيير كلمة المرور"');
+          customErr.canReset = true;
+          throw customErr;
         }
       }
     }
 
-    const baseStudent = serverStudent || firestoreStudent;
-    if (!baseStudent) {
+    if (!serverStudent) {
       const notFoundErr: any = new Error('هذا البريد الإلكتروني غير مسجل بعد، يرجى النقر على زر "حساب طالب جديد" لإنشاء حسابك فوراً');
       notFoundErr.notRegistered = true;
       throw notFoundErr;
     }
+
+    const baseStudent = serverStudent;
 
     // Merge bookmarks from all available persistent sources so none are ever lost
     const mergedBookmarks = Array.from(new Set([

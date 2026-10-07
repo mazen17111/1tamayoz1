@@ -87,8 +87,8 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
   const [isChecking, setIsChecking] = useState(false);
   const handleAdmin = onOpenAdmin || onOpenAdminAuth;
 
-  // Direct guest portal login / register state
-  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  // Direct guest portal login / register / reset state
+  const [authTab, setAuthTab] = useState<'login' | 'register' | 'reset'>('login');
   const [email, setEmail] = useState(() => {
     try {
       return safeStorage.getItem('tamayuz_remembered_student_email') || '';
@@ -180,7 +180,7 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
         } else {
           await onRefresh();
         }
-      } else {
+      } else if (authTab === 'register') {
         if (!name.trim()) {
           setAuthError('يرجى إدخال اسم الطالب');
           setIsSubmitting(false);
@@ -198,6 +198,26 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
         }
 
         const user = await apiService.register(name.trim(), email.trim(), password);
+
+        try {
+          if (rememberMe) {
+            safeStorage.setItem('tamayuz_remembered_student_email', email.trim());
+          }
+        } catch {}
+
+        if (onLoginSuccess) {
+          onLoginSuccess(user);
+        } else {
+          await onRefresh();
+        }
+      } else if (authTab === 'reset') {
+        if (!email.trim() || !password) {
+          setAuthError('يرجى كتابة البريد الإلكتروني وكلمة المرور الجديدة');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const user = await apiService.resetPassword(email.trim(), password);
 
         try {
           if (rememberMe) {
@@ -474,6 +494,23 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
                       يجب أن تتكون كلمة المرور من 6 خانات أو أحرف على الأقل.
                     </p>
                   )}
+
+                  {/* Subtle Reset Password link directly under the password field */}
+                  {authTab === 'login' && (
+                    <div className="flex items-center justify-start pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthTab('reset');
+                          setAuthError(null);
+                        }}
+                        className="text-xs text-slate-400 hover:text-slate-200 transition-colors font-medium flex items-center gap-1.5 cursor-pointer py-0.5 select-none"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                        <span>تغيير كلمة المرور</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Remember Me Option */}
@@ -498,11 +535,17 @@ export const MaintenanceLockScreen: React.FC<MaintenanceLockScreenProps> = ({
                   {isSubmitting ? (
                     <div className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>جاري التحقق وتأمين تسجيل الدخول...</span>
+                      <span>جاري المعالجة وتأمين الحساب...</span>
                     </div>
                   ) : (
                     <>
-                      <span>{authTab === 'login' ? 'دخول المنصة التعليمية' : 'إنشاء الحساب وبدء التعلم الآن'}</span>
+                      <span>
+                        {authTab === 'login' 
+                          ? 'دخول المنصة التعليمية' 
+                          : authTab === 'reset'
+                          ? 'حفظ كلمة المرور الجديدة ودخول المنصة'
+                          : 'إنشاء الحساب وبدء التعلم الآن'}
+                      </span>
                       <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1.5 transition-transform" />
                     </>
                   )}

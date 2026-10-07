@@ -1042,6 +1042,30 @@
           }
         ]
       }
+    },
+    {
+      "id": "usr-1791390468470",
+      "name": "طالب الاختبار",
+      "email": "student_test_verify_1791390468225@example.com",
+      "role": "student",
+      "passwordHash": "b3b272efbbb196b5f6cfd599d096692e:9acd13a90688dae8ed06384eeb50ec6364bc563d0c9b75b4df230c1ca81ddaa6ad81091407e2a24ea02e515f79e360a9f4978d9fdf4b09a3819a2c27e5b5c2b9",
+      "createdAt": "2026-10-07T16:27:48.512Z",
+      "progress": {
+        "completedVideoIds": [],
+        "completedQuizAttempts": [],
+        "bookmarkedResourceIds": [],
+        "questionFolders": [
+          {
+            "id": "folder-mistakes-permanent",
+            "name": "مجلد أخطائي",
+            "createdAt": "2026-10-07T16:27:48.512Z",
+            "color": "rose",
+            "isPermanent": true,
+            "isMistakesFolder": true,
+            "questions": []
+          }
+        ]
+      }
     }
   ]
 }
