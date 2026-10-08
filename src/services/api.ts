@@ -32,6 +32,7 @@ import {
   setStudentBlockInFirestore,
   setStudentSubscriptionInFirestore,
   cleanForFirestore,
+  subscribeToPlatformData,
   COLLECTIONS,
   MAIN_DATA_DOC_ID,
   db
@@ -175,10 +176,60 @@ export const apiService = {
       console.warn('Firestore background write warning:', firestoreError);
     });
 
+    // 3. Instant local broadcast across open tabs and windows in 0ms
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('tamayuz_live_data');
+        bc.postMessage({ platformData: cleanData });
+        bc.close();
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tamayuz_live_platform_updated', { detail: cleanData }));
+      }
+    } catch {}
+
     return {
       success: true,
       message: 'تم حفظ وتثبيت جميع البيانات بنجاح في قاعدة البيانات بشكل دائم.',
       timestamp
+    };
+  },
+
+  // Live real-time subscription across all connected student devices globally
+  subscribeToLiveUpdates(onUpdate: (data: PlatformData) => void): () => void {
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('tamayuz_live_data');
+        bc.onmessage = (event) => {
+          if (event.data?.platformData) {
+            onUpdate(event.data.platformData);
+          }
+        };
+      }
+    } catch {}
+
+    const handleCustomEvent = (e: any) => {
+      if (e.detail) onUpdate(e.detail);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('tamayuz_live_platform_updated', handleCustomEvent);
+    }
+
+    const unsubFirestore = subscribeToPlatformData((liveData) => {
+      localCachedData = liveData;
+      try {
+        safeStorage.setItem('tamayuz_platform_data', JSON.stringify(liveData));
+      } catch {}
+      onUpdate(liveData);
+    });
+
+    return () => {
+      unsubFirestore();
+      if (bc) bc.close();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('tamayuz_live_platform_updated', handleCustomEvent);
+      }
     };
   },
 
@@ -2262,6 +2313,17 @@ export const apiService = {
       savePlatformDataToFirestore(localCachedData).catch((e) => {
         console.warn('Firestore settings sync:', e);
       });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tamayuz_live_platform_updated', { detail: localCachedData }));
+        if (newSettings.theme) {
+          window.dispatchEvent(new CustomEvent('tamayuz_theme_updated', { detail: merged.theme }));
+        }
+      }
+      try {
+        const bc = new BroadcastChannel('tamayuz_live_data');
+        bc.postMessage({ platformData: localCachedData });
+        bc.close();
+      } catch {}
     }
 
     return merged;

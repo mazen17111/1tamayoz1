@@ -10,6 +10,7 @@ import { StudentSubscriptionBanner } from './components/StudentSubscriptionBanne
 import { MaintenanceLockScreen } from './components/MaintenanceLockScreen';
 import { SplitStudioLayout } from './components/SplitStudioLayout';
 import { InAppBrowserBanner } from './components/InAppBrowserBanner';
+import { RaedAuthCard } from './components/RaedAuthCard';
 import { safeStorage } from './utils/safeStorage';
 
 // Lazy load heavy admin tools and interactive modals for ultra-fast initial page loading
@@ -183,6 +184,48 @@ export default function App() {
     return () => {
       window.removeEventListener('tamayuz_theme_updated', handleThemeUpdate);
       bc?.close();
+    };
+  }, []);
+
+  // Real-time live data subscription & smart background sync across all connected student devices globally
+  useEffect(() => {
+    const unsub = apiService.subscribeToLiveUpdates((liveData) => {
+      if (liveData && Array.isArray(liveData.sections) && liveData.sections.length > 0) {
+        setPlatformData((prev) => ({
+          ...liveData,
+          settings: {
+            ...liveData.settings,
+            theme: liveData.settings?.theme || prev.settings?.theme,
+          },
+        }));
+      }
+    });
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const fresh = await apiService.fetchServerDataFast();
+        if (fresh && Array.isArray(fresh.sections) && fresh.sections.length > 0) {
+          setPlatformData((prev) => {
+            const hasChanged =
+              fresh.updatedAt !== prev.updatedAt ||
+              JSON.stringify(fresh.settings) !== JSON.stringify(prev.settings) ||
+              fresh.sections.length !== prev.sections.length ||
+              fresh.resources.length !== prev.resources.length ||
+              fresh.videos.length !== prev.videos.length ||
+              fresh.files.length !== prev.files.length ||
+              fresh.quizzes.length !== prev.quizzes.length;
+            if (hasChanged) {
+              return fresh;
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    }, 4500);
+
+    return () => {
+      unsub();
+      clearInterval(pollInterval);
     };
   }, []);
 
@@ -456,11 +499,6 @@ export default function App() {
   };
 
   const handlePlayVideo = (video: VideoItem) => {
-    if (!currentUser) {
-      setAuthPromptMessage('يرجى تسجيل الدخول أو إنشاء حساب طالب جديد لمشاهدة شروحات الدروس التعليمية والفيديوهات.');
-      setIsAuthModalOpen(true);
-      return;
-    }
     setActiveVideo(video);
   };
 
@@ -703,7 +741,8 @@ export default function App() {
     new Date(effectiveSubscriptionExpiresAt).getTime() <= Date.now()
   );
 
-  // Guest status
+  // Guest status: visitor is unauthenticated (not logged in and not in admin dashboard)
+  const isGuest = !currentUser && !isAdminOpen;
   const isGuestLocked = false;
 
   // Show lock screen ONLY if user is individually blocked, or subscription expired, or platform is in maintenance (and visitor is not admin/approved)
@@ -735,8 +774,8 @@ export default function App() {
       {/* In-App Browser Helper (Telegram, WhatsApp, WebViews) */}
       <InAppBrowserBanner onShowToast={showToast} />
 
-      {/* Top Navigation - Visible when not in lock screen and not in auth modal */}
-      {(!showLockScreen || isAdminOpen) && !isAuthModalOpen && (
+      {/* Top Navigation - Visible only inside platform or admin view */}
+      {!isGuest && (!showLockScreen || isAdminOpen) && !isAuthModalOpen && (
         <Navbar
           currentUser={currentUser ? {
             ...currentUser,
@@ -765,13 +804,13 @@ export default function App() {
         />
       )}
 
-      {/* Global Announcement Alert Bar - Visible inside platform */}
-      {(!showLockScreen || isAdminOpen) && !isAuthModalOpen && (
+      {/* Global Announcement Alert Bar - Visible only inside platform */}
+      {!isGuest && (!showLockScreen || isAdminOpen) && !isAuthModalOpen && (
         <AnnouncementBanner announcement={platformData.settings?.announcement} />
       )}
 
       {/* Student Subscription Bar with Days Countdown & Advancing Progress Bar */}
-      {!isAdminOpen && !showLockScreen && currentUser && currentUser.role !== 'admin' && effectiveSubscriptionExpiresAt && (
+      {!isGuest && !isAdminOpen && !showLockScreen && currentUser && currentUser.role !== 'admin' && effectiveSubscriptionExpiresAt && (
         <StudentSubscriptionBanner
           currentUser={{
             ...currentUser,
@@ -783,8 +822,19 @@ export default function App() {
         />
       )}
 
-      {/* Platform Content or Lockdown Screen */}
-      {showLockScreen ? (
+      {/* Platform Content, Standalone Login View, or Lockdown Screen */}
+      {isGuest ? (
+        /* STANDALONE LOGIN & REGISTRATION PAGE: Content is NOT visible until student logs in or registers */
+        <div className="flex-1 min-h-[90vh] w-full flex items-center justify-center p-3.5 sm:p-6 lg:p-8">
+          <RaedAuthCard
+            onSuccess={(user) => {
+              handleAuthSuccess(user);
+              showToast(`أهلاً بك يا ${user.name} في منصة أقسام رعد`);
+            }}
+            onOpenAdmin={handleOpenAdmin}
+          />
+        </div>
+      ) : showLockScreen ? (
         <MaintenanceLockScreen
           accessConfig={platformData.settings?.access}
           lockMessage={platformData.settings?.access?.lockMessage}
@@ -843,7 +893,7 @@ export default function App() {
               activeVideo={activeVideo}
               onSelectSection={(secId) => setSelectedSectionId(secId)}
               onSelectVideo={(_video) => {
-                // In-place playback inside right-side stage handled directly by SplitStudioLayout
+                // In-place playback inside left-side stage handled directly by SplitStudioLayout
               }}
               onCloseInlineVideo={() => setActiveVideo(null)}
               onStartQuiz={handleStartQuiz}
@@ -896,7 +946,7 @@ export default function App() {
       )}
 
       {/* Footer - Only visible when inside platform */}
-      {(!showLockScreen || isAdminOpen) && (
+      {!isGuest && (!showLockScreen || isAdminOpen) && (
         <footer className="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-6 sm:py-8 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">
           <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2.5">
@@ -949,7 +999,7 @@ export default function App() {
         )}
 
         {/* 2. Video Player Modal */}
-        {activeVideo && currentUser && (
+        {activeVideo && (
           <VideoPlayerModal
             video={activeVideo}
             linkedQuiz={platformData.quizzes.find(
@@ -958,7 +1008,7 @@ export default function App() {
             linkedFile={platformData.files.find(
               (f) => f.id === activeVideo.linkedFileId || f.linkedVideoId === activeVideo.id
             )}
-            isCompleted={currentUser?.progress?.completedVideoIds?.includes(activeVideo.id) || false}
+            isCompleted={Boolean(currentUser?.progress?.completedVideoIds?.includes(activeVideo.id))}
             onClose={() => setActiveVideo(null)}
             onToggleComplete={handleToggleVideoComplete}
             onStartQuiz={handleStartQuiz}

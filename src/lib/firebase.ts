@@ -11,7 +11,8 @@ import {
   collection, 
   getDocs, 
   deleteDoc, 
-  writeBatch 
+  writeBatch,
+  onSnapshot 
 } from 'firebase/firestore';
 import { 
   getStorage, 
@@ -207,6 +208,42 @@ export async function loadPlatformDataFromFirestore(): Promise<PlatformData> {
   } catch (error) {
     console.error('Error reading platform data from Firestore:', error);
     throw error;
+  }
+}
+
+/**
+ * Real-time listener for live platform updates across all students globally
+ */
+export function subscribeToPlatformData(onUpdate: (data: PlatformData) => void): () => void {
+  try {
+    const mainDocRef = doc(db, COLLECTIONS.PLATFORM_DATA, MAIN_DATA_DOC_ID);
+    const unsubscribe = onSnapshot(mainDocRef, (snap) => {
+      if (snap.exists()) {
+        const raw = snap.data() as Partial<PlatformData>;
+        if (raw && Array.isArray(raw.sections) && raw.sections.length > 0) {
+          const deletedIds = Array.isArray(raw.deletedIds) ? raw.deletedIds : [];
+          const deletedSet = new Set(deletedIds);
+          const clean: PlatformData = {
+            sections: (raw.sections || []).filter((s) => s && s.id && !deletedSet.has(s.id)),
+            resources: (raw.resources || []).filter((r) => r && r.id && !deletedSet.has(r.id)),
+            videos: (raw.videos || []).filter((v) => v && v.id && !deletedSet.has(v.id)),
+            files: (raw.files || []).filter((f) => f && f.id && !deletedSet.has(f.id)),
+            quizzes: (raw.quizzes || []).filter((q) => q && q.id && !deletedSet.has(q.id)),
+            liveStream: raw.liveStream,
+            settings: raw.settings,
+            deletedIds,
+            updatedAt: raw.updatedAt || new Date().toISOString(),
+          };
+          onUpdate(clean);
+        }
+      }
+    }, (error) => {
+      console.warn('[Firestore] Realtime subscription notice:', error);
+    });
+    return unsubscribe;
+  } catch (err) {
+    console.warn('[Firestore] Could not start realtime subscription:', err);
+    return () => {};
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   SectionItem, 
   ResourceItem, 
@@ -62,6 +62,7 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
   currentUser,
   activeSectionId,
   onSelectSection,
+  onSelectVideo,
   onStartQuiz,
   onOpenFile,
   onOpenFileLocked,
@@ -70,19 +71,21 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
   onOpenFullscreenVideo,
   onBackToSections,
 }) => {
-  const currentSection = sections.find((s) => s.id === activeSectionId) || sections[0];
-  const sectionResources = resources.filter((r) => r.sectionId === currentSection?.id);
+  const currentSection = useMemo(() => sections.find((s) => s.id === activeSectionId) || sections[0], [sections, activeSectionId]);
+  const sectionResources = useMemo(() => resources.filter((r) => r.sectionId === currentSection?.id), [resources, currentSection?.id]);
 
   const [selectedResourceId, setSelectedResourceId] = useState<string>(
     sectionResources[0]?.id || ''
   );
 
-  const activeResource = 
-    sectionResources.find((r) => r.id === selectedResourceId) || sectionResources[0];
+  const activeResource = useMemo(
+    () => sectionResources.find((r) => r.id === selectedResourceId) || sectionResources[0],
+    [sectionResources, selectedResourceId]
+  );
 
-  const resourceVideos = videos.filter((v) => v.resourceId === activeResource?.id);
-  const resourceFiles = files.filter((f) => f.resourceId === activeResource?.id);
-  const resourceQuizzes = quizzes.filter((q) => q.resourceId === activeResource?.id);
+  const resourceVideos = useMemo(() => videos.filter((v) => v.resourceId === activeResource?.id), [videos, activeResource?.id]);
+  const resourceFiles = useMemo(() => files.filter((f) => f.resourceId === activeResource?.id), [files, activeResource?.id]);
+  const resourceQuizzes = useMemo(() => quizzes.filter((q) => q.resourceId === activeResource?.id), [quizzes, activeResource?.id]);
 
   const [contentTab, setContentTab] = useState<'videos' | 'files' | 'quizzes'>('videos');
 
@@ -105,21 +108,31 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
     });
   };
 
-  // Currently playing video ID inside the right-hand studio player (Starts NULL, never auto-opens)
+  // Currently playing video ID inside the right-hand studio player
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
-  // When section changes or section resources load, ensure a valid resource is selected and reset video
+  const prevSectionIdRef = useRef<string>(activeSectionId);
+  const prevResourceIdRef = useRef<string>(selectedResourceId);
+
+  // When section changes, ensure a valid resource is selected and reset video only on section switch
   useEffect(() => {
-    if (!selectedResourceId || !sectionResources.some((r) => r.id === selectedResourceId)) {
+    if (prevSectionIdRef.current !== activeSectionId) {
+      prevSectionIdRef.current = activeSectionId;
+      const firstRes = sectionResources[0]?.id || '';
+      setSelectedResourceId(firstRes);
+      setSelectedVideoId(null);
+    } else if (!selectedResourceId || !sectionResources.some((r) => r.id === selectedResourceId)) {
       const firstRes = sectionResources[0]?.id || '';
       setSelectedResourceId(firstRes);
     }
-    setSelectedVideoId(null);
-  }, [activeSectionId, sectionResources]);
+  }, [activeSectionId, sectionResources, selectedResourceId]);
 
-  // When resource changes, reset selected video so it does not open automatically
+  // When resource explicitly changes, reset selected video
   useEffect(() => {
-    setSelectedVideoId(null);
+    if (prevResourceIdRef.current !== selectedResourceId) {
+      prevResourceIdRef.current = selectedResourceId;
+      setSelectedVideoId(null);
+    }
   }, [selectedResourceId]);
 
   // The displayed video is ONLY the video the student explicitly clicked on
@@ -196,9 +209,15 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
     return url;
   };
 
-  // Video switch handler: switches the video in place inside the player on the right
+  const stageContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Video switch handler: switches the video in place inside the player stage on the left and scrolls smoothly
   const handleSelectVideo = (vid: VideoItem) => {
     setSelectedVideoId(vid.id);
+    onSelectVideo(vid);
+    if (stageContainerRef.current) {
+      stageContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -450,17 +469,32 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {isSelected && (
-                        <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-                          قيد التشغيل
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isSelected ? (
+                        <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          <span>قيد التشغيل</span>
                         </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectVideo(vid);
+                          }}
+                          className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-black transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                          title="تشغيل الفيديو الآن"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          <span>تشغيل</span>
+                        </button>
                       )}
 
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          handleSelectVideo(vid);
                           onOpenFullscreenVideo(vid);
                         }}
                         title="تكبير لنافذة كاملة"
@@ -562,7 +596,7 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
   // VIDEO STAGE (RIGHT SIDE): Persistent Studio Player Screen & Video Details
   // --------------------------------------------------------------------------
   const renderVideoStage = () => (
-    <div className="w-full space-y-4">
+    <div ref={stageContainerRef} id="studio-stage-player" className="w-full space-y-4">
       
       {/* Video Screen Container */}
       <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
@@ -653,6 +687,7 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
                 ref={studioVideoRef}
                 src={displayedVideo.videoUrl}
                 controls
+                autoPlay
                 preload="metadata"
                 playsInline
                 controlsList="nodownload"
