@@ -348,29 +348,40 @@ body {
   --tw-gradient-to: #475569 var(--tw-gradient-to-position) !important;
 }
 
-/* Midnight Dark Theme */
+/* Midnight Dark Theme (الوضع الأسود الفاخر) */
 .theme-midnight-dark .bg-emerald-700,
 .theme-midnight-dark .bg-emerald-600 {
-  background-color: #0f172a !important;
+  background-color: #18181b !important;
+  color: #ffffff !important;
 }
 .theme-midnight-dark .hover\:bg-emerald-800:hover,
 .theme-midnight-dark .hover\:bg-emerald-700:hover {
-  background-color: #020617 !important;
+  background-color: #27272a !important;
+  color: #ffffff !important;
 }
 .theme-midnight-dark .text-emerald-700,
 .theme-midnight-dark .text-emerald-800,
 .theme-midnight-dark .text-emerald-600 {
-  color: #38bdf8 !important;
+  color: #ffffff !important;
 }
 .theme-midnight-dark .dark .text-emerald-400,
 .theme-midnight-dark .dark .text-emerald-300 {
-  color: #38bdf8 !important;
+  color: #ffffff !important;
+}
+.theme-midnight-dark .bg-emerald-50,
+.theme-midnight-dark .bg-emerald-100 {
+  background-color: #18181b !important;
+  color: #ffffff !important;
+}
+.theme-midnight-dark .border-emerald-200,
+.theme-midnight-dark .border-emerald-300 {
+  border-color: #27272a !important;
 }
 .theme-midnight-dark .from-emerald-600 {
-  --tw-gradient-from: #0f172a var(--tw-gradient-from-position) !important;
+  --tw-gradient-from: #09090b var(--tw-gradient-from-position) !important;
 }
 .theme-midnight-dark .to-teal-500 {
-  --tw-gradient-to: #1e293b var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: #18181b var(--tw-gradient-to-position) !important;
 }
 
 /* High Quality Dark Mode Card Highlights */

@@ -53,7 +53,7 @@ interface SplitStudioLayoutProps {
 }
 
 export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
-  layoutPreset,
+  layoutPreset = 'sidebar-split-right',
   sections,
   resources,
   videos,
@@ -61,6 +61,7 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
   quizzes,
   currentUser,
   activeSectionId,
+  activeVideo,
   onSelectSection,
   onSelectVideo,
   onStartQuiz,
@@ -108,37 +109,49 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
     });
   };
 
-  // Currently playing video ID inside the right-hand studio player
+  // Currently playing video ID inside the studio player
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+
+  // Sync activeVideo prop from parent if passed
+  useEffect(() => {
+    if (activeVideo && activeVideo.id) {
+      setSelectedVideoId(activeVideo.id);
+      if (activeVideo.resourceId && activeVideo.resourceId !== selectedResourceId) {
+        setSelectedResourceId(activeVideo.resourceId);
+      }
+    }
+  }, [activeVideo?.id]);
 
   const prevSectionIdRef = useRef<string>(activeSectionId);
   const prevResourceIdRef = useRef<string>(selectedResourceId);
 
-  // When section changes, ensure a valid resource is selected and reset video only on section switch
+  // When section changes, ensure a valid resource is selected
   useEffect(() => {
     if (prevSectionIdRef.current !== activeSectionId) {
       prevSectionIdRef.current = activeSectionId;
       const firstRes = sectionResources[0]?.id || '';
       setSelectedResourceId(firstRes);
-      setSelectedVideoId(null);
     } else if (!selectedResourceId || !sectionResources.some((r) => r.id === selectedResourceId)) {
       const firstRes = sectionResources[0]?.id || '';
       setSelectedResourceId(firstRes);
     }
   }, [activeSectionId, sectionResources, selectedResourceId]);
 
-  // When resource explicitly changes, reset selected video
+  // When resource explicitly changes, update ref
   useEffect(() => {
     if (prevResourceIdRef.current !== selectedResourceId) {
       prevResourceIdRef.current = selectedResourceId;
-      setSelectedVideoId(null);
     }
   }, [selectedResourceId]);
 
-  // The displayed video is ONLY the video the student explicitly clicked on
-  const displayedVideo = selectedVideoId
-    ? resourceVideos.find((v) => v.id === selectedVideoId) || null
-    : null;
+  // The displayed video: find by selectedVideoId in all videos, or fallback to first video
+  const displayedVideo = useMemo(() => {
+    if (selectedVideoId) {
+      const match = videos.find((v) => v.id === selectedVideoId) || resourceVideos.find((v) => v.id === selectedVideoId);
+      if (match) return match;
+    }
+    return resourceVideos[0] || videos.find((v) => v.sectionId === currentSection?.id) || videos[0] || null;
+  }, [selectedVideoId, videos, resourceVideos, currentSection?.id]);
 
   const isVideoCompleted = displayedVideo
     ? currentUser?.progress?.completedVideoIds?.includes(displayedVideo.id)
@@ -871,11 +884,13 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
     return (
       <div className="space-y-6 text-right" dir="rtl">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-8 w-full">
-            {renderVideoStage()}
-          </div>
-          <div className="lg:col-span-4 w-full">
+          {/* Right side in RTL: Sidebar */}
+          <div className="lg:col-span-4 w-full order-2 lg:order-1">
             {renderSidebar()}
+          </div>
+          {/* Left side in RTL: Video Player Stage */}
+          <div className="lg:col-span-8 w-full order-1 lg:order-2">
+            {renderVideoStage()}
           </div>
         </div>
       </div>
@@ -895,18 +910,17 @@ export const SplitStudioLayout: React.FC<SplitStudioLayoutProps> = ({
     );
   }
 
-  // Default: sidebar-split-left (الاستوديو المعكوس) or fallback
-  // Video on the RIGHT, Sidebar on the LEFT (in RTL)
+  // Default: Sidebar on the RIGHT, Video Player Stage on the LEFT (عاليسار) in RTL
   return (
     <div className="space-y-6 text-right" dir="rtl">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Right side in RTL: Video Player Stage */}
-        <div className="lg:col-span-7 xl:col-span-8 w-full">
-          {renderVideoStage()}
-        </div>
-        {/* Left side in RTL: Sidebar (Sections & Resources) */}
-        <div className="lg:col-span-5 xl:col-span-4 w-full">
+        {/* Right side in RTL: Sections & Lessons Sidebar */}
+        <div className="lg:col-span-5 xl:col-span-4 w-full order-2 lg:order-1">
           {renderSidebar()}
+        </div>
+        {/* Left side in RTL: Video Player Stage (مشغل الفيديو على اليسار) */}
+        <div className="lg:col-span-7 xl:col-span-8 w-full order-1 lg:order-2">
+          {renderVideoStage()}
         </div>
       </div>
     </div>

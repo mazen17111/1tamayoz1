@@ -1,5 +1,56 @@
 {
+  "sections": [
+    {
+      "id": "sec-quantitative",
+      "badge": "أساسي",
+      "color": "blue",
+      "description": "شروحات واختبارات وملخصات الحساب، الجبر، الهندسة، المقارنات والإحصاء لاختبار القدرات العامة.",
+      "title": "القسم الكمي",
+      "iconName": "Calculator",
+      "createdAt": "2026-01-10T10:00:00.000Z",
+      "order": 1
+    },
+    {
+      "title": "القسم اللفظي",
+      "order": 2,
+      "id": "sec-verbal",
+      "badge": "أساسي",
+      "description": "استيعاب المقروء، التناظر اللفظي، إكمال الجمل، الخطأ السياقي، والارتباط والاختلاف.",
+      "createdAt": "2026-01-10T10:05:00.000Z",
+      "color": "emerald",
+      "iconName": "BookOpen"
+    },
+    {
+      "iconName": "Sparkles",
+      "description": "منصة لكسب الشهادات كل ماعليك هو ان تكتب مهماك في القسم الكمي والقسم اللفظي وعند الانتهاء منها تضغط على زر طلب الشهادة وستتحول تلقائيا الى مجلد شهاداتي باسمك (لكتابة الاسم ادخل الى الاعدادات )",
+      "title": "منصة تميز 2",
+      "order": 99,
+      "createdAt": "2026-09-24T08:46:35.211Z",
+      "id": "sec-1790239595211",
+      "color": "emerald"
+    }
+  ],
   "resources": [
+    {
+      "title": "الاقسام الحمراء (اتقان)",
+      "description": "",
+      "id": "res-1789589532323",
+      "createdAt": "2026-09-16T20:12:12.323Z",
+      "order": 2,
+      "sectionId": "sec-quantitative",
+      "iconName": "BookOpen",
+      "level": "متوسط"
+    },
+    {
+      "description": "",
+      "title": "المعاصر 11",
+      "id": "res-1789640167768",
+      "order": 3,
+      "createdAt": "2026-09-17T10:16:07.768Z",
+      "level": "متوسط",
+      "iconName": "BookOpen",
+      "sectionId": "sec-quantitative"
+    },
     {
       "title": "بستطهالك كمي",
       "order": 99,
@@ -31,16 +82,6 @@
       "order": 99
     },
     {
-      "title": "الاقسام الحمراء (اتقان)",
-      "description": "",
-      "id": "res-1789589532323",
-      "createdAt": "2026-09-16T20:12:12.323Z",
-      "order": 2,
-      "sectionId": "sec-quantitative",
-      "iconName": "BookOpen",
-      "level": "متوسط"
-    },
-    {
       "iconName": "BookOpen",
       "description": "",
       "level": "متوسط",
@@ -61,16 +102,6 @@
       "description": ""
     },
     {
-      "description": "",
-      "title": "المعاصر 11",
-      "id": "res-1789640167768",
-      "order": 3,
-      "createdAt": "2026-09-17T10:16:07.768Z",
-      "level": "متوسط",
-      "iconName": "BookOpen",
-      "sectionId": "sec-quantitative"
-    },
-    {
       "id": "res-1790239657243",
       "order": 99,
       "sectionId": "sec-1790239595211",
@@ -81,14 +112,155 @@
       "description": ""
     }
   ],
-  "liveStream": {
-    "streamUrl": "",
-    "scheduledTime": "",
-    "description": "",
-    "isEnabled": false,
-    "updatedAt": "2026-09-27T10:54:08.637Z",
-    "title": "البث المباشر - منصة أقسام رعد"
-  },
+  "videos": [
+    {
+      "createdAt": "2026-09-10T14:46:06.620Z",
+      "resourceId": "res-1788613918123",
+      "videoUrl": "https://files.catbox.moe/g9xxb2.MP4",
+      "order": 1,
+      "title": "الفيديو الاول",
+      "linkedQuizId": "quiz-1789063470164",
+      "sectionId": "sec-quantitative",
+      "durationMinutes": 2,
+      "id": "vid-1789051566620",
+      "description": "",
+      "url": "https://files.catbox.moe/g9xxb2.MP4"
+    },
+    {
+      "sectionId": "sec-verbal",
+      "url": "https://files.catbox.moe/9fqce7.mp4",
+      "videoUrl": "https://files.catbox.moe/9fqce7.mp4",
+      "title": "شرح الاكثر تكرارا (1)",
+      "createdAt": "2026-09-19T12:04:05.183Z",
+      "resourceId": "res-1789589979336",
+      "description": "",
+      "order": 1,
+      "durationMinutes": 80,
+      "id": "vid-1789819445183"
+    },
+    {
+      "url": "https://files.catbox.moe/kdc9xs.mp4",
+      "durationMinutes": 15,
+      "createdAt": "2026-09-19T12:05:50.524Z",
+      "id": "vid-1789819550524",
+      "description": "",
+      "title": "شرح الاكثر تكرارا (2)",
+      "videoUrl": "https://files.catbox.moe/kdc9xs.mp4",
+      "resourceId": "res-1789589979336",
+      "order": 1,
+      "sectionId": "sec-verbal"
+    },
+    {
+      "resourceId": "res-1789589979336",
+      "createdAt": "2026-09-19T12:07:59.305Z",
+      "order": 1,
+      "videoUrl": "https://files.catbox.moe/6jazu0.mp4",
+      "title": "شرح الاكثر تكرارا (3)",
+      "sectionId": "sec-verbal",
+      "description": "",
+      "url": "https://files.catbox.moe/6jazu0.mp4",
+      "id": "vid-1789819679305",
+      "durationMinutes": 15
+    },
+    {
+      "id": "vid-1789819735730",
+      "sectionId": "sec-verbal",
+      "resourceId": "res-1789589979336",
+      "videoUrl": "https://files.catbox.moe/cdlnjz.mp4",
+      "description": "",
+      "url": "https://files.catbox.moe/cdlnjz.mp4",
+      "createdAt": "2026-09-19T12:08:55.730Z",
+      "order": 1,
+      "durationMinutes": 15,
+      "title": "شرح الاكثر تكرارا (4)"
+    },
+    {
+      "id": "vid-1789819775012",
+      "url": "https://files.catbox.moe/6b6n9o.mp4",
+      "resourceId": "res-1789589979336",
+      "createdAt": "2026-09-19T12:09:35.012Z",
+      "durationMinutes": 15,
+      "videoUrl": "https://files.catbox.moe/6b6n9o.mp4",
+      "title": "شرح الاكثر تكرارا (5)",
+      "order": 1,
+      "description": "",
+      "sectionId": "sec-verbal"
+    },
+    {
+      "order": 1,
+      "description": "",
+      "id": "vid-1790239968039",
+      "resourceId": "res-1790239657243",
+      "videoUrl": "https://files.catbox.moe/fzp21z.mp4",
+      "title": "شرج المصة وطريقة الدخول اليها",
+      "durationMinutes": 3,
+      "createdAt": "2026-09-24T08:52:48.039Z",
+      "sectionId": "sec-1790239595211"
+    },
+    {
+      "createdAt": "2026-09-10T17:55:00.281Z",
+      "videoUrl": "https://files.catbox.moe/lwy05g.MP4",
+      "id": "vid-1789062900281",
+      "url": "https://files.catbox.moe/lwy05g.MP4",
+      "description": "",
+      "sectionId": "sec-quantitative",
+      "resourceId": "res-1788613918123",
+      "title": "الفيديو الثاني",
+      "order": 2,
+      "durationMinutes": 2
+    },
+    {
+      "videoUrl": "https://files.catbox.moe/xy1tik.mp4",
+      "title": "الفيديو الثالث",
+      "durationMinutes": 2,
+      "resourceId": "res-1788613918123",
+      "order": 3,
+      "url": "https://files.catbox.moe/xy1tik.mp4",
+      "createdAt": "2026-09-10T17:56:25.309Z",
+      "description": "",
+      "linkedQuizId": "quiz-1789063523458",
+      "id": "vid-1789062985309",
+      "sectionId": "sec-quantitative"
+    },
+    {
+      "linkedQuizId": "quiz-1789063564308",
+      "id": "vid-1789063069243",
+      "url": "https://files.catbox.moe/pkivnz.mp4",
+      "createdAt": "2026-09-10T17:57:49.243Z",
+      "videoUrl": "https://files.catbox.moe/pkivnz.mp4",
+      "durationMinutes": 3,
+      "resourceId": "res-1788613918123",
+      "sectionId": "sec-quantitative",
+      "title": "الفيديو الرابع",
+      "description": "",
+      "order": 4
+    },
+    {
+      "url": "https://files.catbox.moe/yjq2m9.mp4",
+      "sectionId": "sec-quantitative",
+      "title": "الفيديو الخامس",
+      "description": "",
+      "order": 5,
+      "id": "vid-1789063109966",
+      "videoUrl": "https://files.catbox.moe/yjq2m9.mp4",
+      "linkedQuizId": "quiz-1789063587212",
+      "resourceId": "res-1788613918123",
+      "createdAt": "2026-09-10T17:58:29.966Z",
+      "durationMinutes": 2
+    },
+    {
+      "id": "vid-1789063699608",
+      "videoUrl": "https://files.catbox.moe/mcteys.mp4",
+      "createdAt": "2026-09-10T18:08:19.608Z",
+      "durationMinutes": 2,
+      "description": "",
+      "sectionId": "sec-quantitative",
+      "url": "https://files.catbox.moe/mcteys.mp4",
+      "order": 6,
+      "resourceId": "res-1788613918123",
+      "title": "الفيديو السادس"
+    }
+  ],
   "files": [
     {
       "resourceId": "res-1788614020037",
@@ -114,19 +286,6 @@
       "pagesCount": 20,
       "description": "",
       "id": "file-1789131150112",
-      "sectionId": "sec-verbal"
-    },
-    {
-      "fileType": "pdf",
-      "title": "ملف الاقسام من 118 الى 163",
-      "id": "file-1789588742091",
-      "order": 3,
-      "createdAt": "2026-09-16T19:59:02.091Z",
-      "fileSize": "2.5 MB",
-      "fileUrl": "https://files.catbox.moe/exuhws.pdf",
-      "pagesCount": 20,
-      "resourceId": "res-1788614020037",
-      "description": "",
       "sectionId": "sec-verbal"
     },
     {
@@ -496,103 +655,21 @@
       "id": "file-1790239719785",
       "order": 1,
       "sectionId": "sec-1790239595211"
+    },
+    {
+      "fileType": "pdf",
+      "title": "ملف الاقسام من 118 الى 163",
+      "id": "file-1789588742091",
+      "order": 3,
+      "createdAt": "2026-09-16T19:59:02.091Z",
+      "fileSize": "2.5 MB",
+      "fileUrl": "https://files.catbox.moe/exuhws.pdf",
+      "pagesCount": 20,
+      "resourceId": "res-1788614020037",
+      "description": "",
+      "sectionId": "sec-verbal"
     }
   ],
-  "settings": {
-    "theme": {
-      "primaryColor": "emerald",
-      "sectionsLayout": "grid",
-      "headerStyle": "glassmorphism",
-      "layoutPreset": "sidebar-split-right",
-      "borderRadius": "compact",
-      "id": "emerald",
-      "updatedAt": "2026-10-07T16:22:52.764Z",
-      "preset": "emerald",
-      "name": "الأخضر الزمردي الملكي",
-      "density": "compact",
-      "fontScale": "large",
-      "cardStyle": "bordered",
-      "customLayoutOrder": {
-        "desktop": [
-          "announcements",
-          "sections",
-          "resources",
-          "video_stage"
-        ],
-        "mobile": [
-          "announcements",
-          "sections",
-          "resources",
-          "video_stage"
-        ]
-      }
-    },
-    "announcement": {
-      "updatedAt": "2026-09-28T16:41:55.839Z",
-      "isDismissible": false,
-      "linkUrl": "",
-      "linkText": "",
-      "isEnabled": true,
-      "message": "تم اضافة فيديوهات واختبارات وملفات الكراش كورس (ايهاب عبدالعظيم)",
-      "type": "success"
-    },
-    "access": {
-      "whatsappMessage": "السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة أقسام رعد",
-      "subscriptionMessage": "انتهى اشتراكك أو تواصل مع المشرف لتفعيل الاشتراك أو اشترك الآن للوصول لكافة المحتويات.",
-      "telegramUsername": "",
-      "lockMessage": "نحن حالياً في فترة صيانة وتحديثات للمنصة لتجهيز أفضل تجربة تعليمية لكم. سنعود للعمل قريباً!",
-      "blockedStudentEmails": [],
-      "whatsappNumber": "",
-      "lockReason": "maintenance",
-      "updatedAt": "2026-10-07T16:22:52.764Z",
-      "studentSubscriptions": {
-        "mktm22@gmail.com": {
-          "startedAt": "2026-10-07T16:22:52.764Z",
-          "expiresAt": "2027-10-07T00:00:00.000Z",
-          "days": 365
-        },
-        "magedmahrous2019@gmail.com": {
-          "startedAt": "2026-10-07T16:22:52.764Z",
-          "expiresAt": "2027-10-07T00:00:00.000Z",
-          "days": 365
-        },
-        "mazenmahrous31@gmail.com": {
-          "expiresAt": "2027-10-07T00:00:00.000Z",
-          "days": 365,
-          "startedAt": "2026-10-07T16:22:52.764Z"
-        },
-        "ommazen41989@gmail.com": {
-          "expiresAt": "2027-10-07T00:00:00.000Z",
-          "days": 365,
-          "startedAt": "2026-10-07T16:22:52.764Z"
-        },
-        "fares14464@gmail.com": {
-          "days": 365,
-          "expiresAt": "2027-10-07T00:00:00.000Z",
-          "startedAt": "2026-10-07T16:22:52.764Z"
-        }
-      },
-      "allowedStudentEmails": [],
-      "isLocked": false,
-      "subscriptionButtonText": "اشترك الآن أو فعّل اشتراكك عبر واتساب"
-    },
-    "telegramWidget": {
-      "isEnabled": true,
-      "buttonLabel": "تليجرام",
-      "title": "قنوات ومجموعات تليجرام 📢",
-      "description": "انضم إلى مجموعات وقنوات التليجرام الرسمية لمتابعة التدريبات والنقاشات.",
-      "groups": [
-        {
-          "id": "tg-1",
-          "title": "جروب مناقشات القدرات",
-          "link": "https://t.me/tamayuz_group",
-          "description": "حل التجميعات اليومية والتسريبات"
-        }
-      ],
-      "updatedAt": "2026-09-28T16:41:55.839Z"
-    }
-  },
-  "updatedAt": "2026-09-28T16:41:55.839Z",
   "quizzes": [
     {
       "createdAt": "2026-09-10T18:04:30.164Z",
@@ -845,37 +922,93 @@
       "sectionId": "sec-quantitative"
     }
   ],
-  "sections": [
-    {
-      "id": "sec-quantitative",
-      "badge": "أساسي",
-      "color": "blue",
-      "description": "شروحات واختبارات وملخصات الحساب، الجبر، الهندسة، المقارنات والإحصاء لاختبار القدرات العامة.",
-      "title": "القسم الكمي",
-      "iconName": "Calculator",
-      "createdAt": "2026-01-10T10:00:00.000Z",
-      "order": 1
+  "liveStream": {
+    "streamUrl": "",
+    "scheduledTime": "",
+    "description": "",
+    "isEnabled": false,
+    "updatedAt": "2026-09-27T10:54:08.637Z",
+    "title": "البث المباشر - منصة أقسام رعد"
+  },
+  "settings": {
+    "theme": {
+      "primaryColor": "midnight-dark",
+      "sectionsLayout": "grid",
+      "headerStyle": "glassmorphism",
+      "layoutPreset": "sidebar-split-right",
+      "borderRadius": "standard",
+      "id": "midnight-dark",
+      "updatedAt": "2026-10-08T18:29:26.641Z",
+      "preset": "midnight-dark",
+      "name": "الداكن المخملي الليلي",
+      "density": "comfortable",
+      "fontScale": "large",
+      "cardStyle": "bordered",
+      "customLayoutOrder": {
+        "desktop": [
+          "announcements",
+          "sections",
+          "resources",
+          "video_stage"
+        ],
+        "mobile": [
+          "announcements",
+          "sections",
+          "resources",
+          "video_stage"
+        ]
+      }
     },
-    {
-      "title": "القسم اللفظي",
-      "order": 2,
-      "id": "sec-verbal",
-      "badge": "أساسي",
-      "description": "استيعاب المقروء، التناظر اللفظي، إكمال الجمل، الخطأ السياقي، والارتباط والاختلاف.",
-      "createdAt": "2026-01-10T10:05:00.000Z",
-      "color": "emerald",
-      "iconName": "BookOpen"
+    "announcement": {
+      "updatedAt": "2026-09-28T16:41:55.839Z",
+      "isDismissible": false,
+      "linkUrl": "",
+      "linkText": "",
+      "isEnabled": true,
+      "message": "تم اضافة فيديوهات واختبارات وملفات الكراش كورس (ايهاب عبدالعظيم)",
+      "type": "success"
     },
-    {
-      "iconName": "Sparkles",
-      "description": "منصة لكسب الشهادات كل ماعليك هو ان تكتب مهماك في القسم الكمي والقسم اللفظي وعند الانتهاء منها تضغط على زر طلب الشهادة وستتحول تلقائيا الى مجلد شهاداتي باسمك (لكتابة الاسم ادخل الى الاعدادات )",
-      "title": "منصة تميز 2",
-      "order": 99,
-      "createdAt": "2026-09-24T08:46:35.211Z",
-      "id": "sec-1790239595211",
-      "color": "emerald"
+    "access": {
+      "whatsappMessage": "السلام عليكم يا أستاذ، أريد تفعيل اشتراكي في منصة أقسام رعد",
+      "subscriptionMessage": "انتهى اشتراكك أو تواصل مع المشرف لتفعيل الاشتراك أو اشترك الآن للوصول لكافة المحتويات.",
+      "telegramUsername": "",
+      "lockMessage": "نحن حالياً في فترة صيانة وتحديثات للمنصة لتجهيز أفضل تجربة تعليمية لكم. سنعود للعمل قريباً!",
+      "blockedStudentEmails": [],
+      "whatsappNumber": "",
+      "lockReason": "maintenance",
+      "updatedAt": "2026-10-07T16:22:52.764Z",
+      "studentSubscriptions": {
+        "fares14464@gmail.com": {
+          "days": 365,
+          "expiresAt": "2027-10-07T00:00:00.000Z",
+          "startedAt": "2026-10-07T16:22:52.764Z"
+        },
+        "ommazen41989@gmail.com": {
+          "expiresAt": "2027-10-07T00:00:00.000Z",
+          "startedAt": "2026-10-07T16:22:52.764Z",
+          "days": 365
+        },
+        "mazenmahrous31@gmail.com": {
+          "days": 365,
+          "startedAt": "2026-10-07T16:22:52.764Z",
+          "expiresAt": "2027-10-07T00:00:00.000Z"
+        },
+        "mktm22@gmail.com": {
+          "startedAt": "2026-10-07T16:22:52.764Z",
+          "days": 365,
+          "expiresAt": "2027-10-07T00:00:00.000Z"
+        },
+        "magedmahrous2019@gmail.com": {
+          "startedAt": "2026-10-07T16:22:52.764Z",
+          "days": 365,
+          "expiresAt": "2027-10-07T00:00:00.000Z"
+        }
+      },
+      "allowedStudentEmails": [],
+      "isLocked": false,
+      "subscriptionButtonText": "اشترك الآن أو فعّل اشتراكك عبر واتساب"
     }
-  ],
+  },
   "deletedIds": [
     "vid-1788842498895",
     "vid-1788842825351",
@@ -893,153 +1026,5 @@
     "quiz-1790410956257",
     "vid-1790502061123"
   ],
-  "videos": [
-    {
-      "createdAt": "2026-09-10T14:46:06.620Z",
-      "resourceId": "res-1788613918123",
-      "videoUrl": "https://files.catbox.moe/g9xxb2.MP4",
-      "order": 1,
-      "title": "الفيديو الاول",
-      "linkedQuizId": "quiz-1789063470164",
-      "sectionId": "sec-quantitative",
-      "durationMinutes": 2,
-      "id": "vid-1789051566620",
-      "description": "",
-      "url": "https://files.catbox.moe/g9xxb2.MP4"
-    },
-    {
-      "createdAt": "2026-09-10T17:55:00.281Z",
-      "videoUrl": "https://files.catbox.moe/lwy05g.MP4",
-      "id": "vid-1789062900281",
-      "url": "https://files.catbox.moe/lwy05g.MP4",
-      "description": "",
-      "sectionId": "sec-quantitative",
-      "resourceId": "res-1788613918123",
-      "title": "الفيديو الثاني",
-      "order": 2,
-      "durationMinutes": 2
-    },
-    {
-      "videoUrl": "https://files.catbox.moe/xy1tik.mp4",
-      "title": "الفيديو الثالث",
-      "durationMinutes": 2,
-      "resourceId": "res-1788613918123",
-      "order": 3,
-      "url": "https://files.catbox.moe/xy1tik.mp4",
-      "createdAt": "2026-09-10T17:56:25.309Z",
-      "description": "",
-      "linkedQuizId": "quiz-1789063523458",
-      "id": "vid-1789062985309",
-      "sectionId": "sec-quantitative"
-    },
-    {
-      "linkedQuizId": "quiz-1789063564308",
-      "id": "vid-1789063069243",
-      "url": "https://files.catbox.moe/pkivnz.mp4",
-      "createdAt": "2026-09-10T17:57:49.243Z",
-      "videoUrl": "https://files.catbox.moe/pkivnz.mp4",
-      "durationMinutes": 3,
-      "resourceId": "res-1788613918123",
-      "sectionId": "sec-quantitative",
-      "title": "الفيديو الرابع",
-      "description": "",
-      "order": 4
-    },
-    {
-      "url": "https://files.catbox.moe/yjq2m9.mp4",
-      "sectionId": "sec-quantitative",
-      "title": "الفيديو الخامس",
-      "description": "",
-      "order": 5,
-      "id": "vid-1789063109966",
-      "videoUrl": "https://files.catbox.moe/yjq2m9.mp4",
-      "linkedQuizId": "quiz-1789063587212",
-      "resourceId": "res-1788613918123",
-      "createdAt": "2026-09-10T17:58:29.966Z",
-      "durationMinutes": 2
-    },
-    {
-      "id": "vid-1789063699608",
-      "videoUrl": "https://files.catbox.moe/mcteys.mp4",
-      "createdAt": "2026-09-10T18:08:19.608Z",
-      "durationMinutes": 2,
-      "description": "",
-      "sectionId": "sec-quantitative",
-      "url": "https://files.catbox.moe/mcteys.mp4",
-      "order": 6,
-      "resourceId": "res-1788613918123",
-      "title": "الفيديو السادس"
-    },
-    {
-      "sectionId": "sec-verbal",
-      "url": "https://files.catbox.moe/9fqce7.mp4",
-      "videoUrl": "https://files.catbox.moe/9fqce7.mp4",
-      "title": "شرح الاكثر تكرارا (1)",
-      "createdAt": "2026-09-19T12:04:05.183Z",
-      "resourceId": "res-1789589979336",
-      "description": "",
-      "order": 1,
-      "durationMinutes": 80,
-      "id": "vid-1789819445183"
-    },
-    {
-      "url": "https://files.catbox.moe/kdc9xs.mp4",
-      "durationMinutes": 15,
-      "createdAt": "2026-09-19T12:05:50.524Z",
-      "id": "vid-1789819550524",
-      "description": "",
-      "title": "شرح الاكثر تكرارا (2)",
-      "videoUrl": "https://files.catbox.moe/kdc9xs.mp4",
-      "resourceId": "res-1789589979336",
-      "order": 1,
-      "sectionId": "sec-verbal"
-    },
-    {
-      "resourceId": "res-1789589979336",
-      "createdAt": "2026-09-19T12:07:59.305Z",
-      "order": 1,
-      "videoUrl": "https://files.catbox.moe/6jazu0.mp4",
-      "title": "شرح الاكثر تكرارا (3)",
-      "sectionId": "sec-verbal",
-      "description": "",
-      "url": "https://files.catbox.moe/6jazu0.mp4",
-      "id": "vid-1789819679305",
-      "durationMinutes": 15
-    },
-    {
-      "id": "vid-1789819735730",
-      "sectionId": "sec-verbal",
-      "resourceId": "res-1789589979336",
-      "videoUrl": "https://files.catbox.moe/cdlnjz.mp4",
-      "description": "",
-      "url": "https://files.catbox.moe/cdlnjz.mp4",
-      "createdAt": "2026-09-19T12:08:55.730Z",
-      "order": 1,
-      "durationMinutes": 15,
-      "title": "شرح الاكثر تكرارا (4)"
-    },
-    {
-      "id": "vid-1789819775012",
-      "url": "https://files.catbox.moe/6b6n9o.mp4",
-      "resourceId": "res-1789589979336",
-      "createdAt": "2026-09-19T12:09:35.012Z",
-      "durationMinutes": 15,
-      "videoUrl": "https://files.catbox.moe/6b6n9o.mp4",
-      "title": "شرح الاكثر تكرارا (5)",
-      "order": 1,
-      "description": "",
-      "sectionId": "sec-verbal"
-    },
-    {
-      "order": 1,
-      "description": "",
-      "id": "vid-1790239968039",
-      "resourceId": "res-1790239657243",
-      "videoUrl": "https://files.catbox.moe/fzp21z.mp4",
-      "title": "شرج المصة وطريقة الدخول اليها",
-      "durationMinutes": 3,
-      "createdAt": "2026-09-24T08:52:48.039Z",
-      "sectionId": "sec-1790239595211"
-    }
-  ]
+  "updatedAt": "2026-10-08T18:29:26.641Z"
 }

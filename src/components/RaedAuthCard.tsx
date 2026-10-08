@@ -203,7 +203,11 @@ export const RaedAuthCard: React.FC<RaedAuthCardProps> = ({
 
       {/* 1. العنوان بخط كبير: منصة اقسام رعد */}
       <div className="text-center space-y-2 mb-6">
-        <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white border border-zinc-200 dark:border-zinc-800 shadow-md mb-2">
+        <div 
+          onDoubleClick={onOpenAdmin}
+          title="منصة أقسام رعد"
+          className="inline-flex items-center justify-center p-2 rounded-2xl bg-white border border-zinc-200 dark:border-zinc-800 shadow-md mb-2 cursor-pointer select-none"
+        >
           <img
             src="/raed-logo.png"
             alt="شعار منصة أقسام رعد"
@@ -507,19 +511,6 @@ export const RaedAuthCard: React.FC<RaedAuthCardProps> = ({
           >
             العودة لصفحة تسجيل الدخول
           </button>
-        )}
-
-        {onOpenAdmin && (
-          <div className="pt-2 text-center border-t border-zinc-200/40 dark:border-zinc-800/60 mt-2">
-            <button
-              type="button"
-              onClick={onOpenAdmin}
-              className="text-xs font-bold opacity-60 hover:opacity-100 transition-opacity inline-flex items-center gap-1.5 cursor-pointer py-1"
-            >
-              <Lock className="w-3 h-3" />
-              <span>دخول المشرفين وإدارة المنصة</span>
-            </button>
-          </div>
         )}
       </form>
     </div>

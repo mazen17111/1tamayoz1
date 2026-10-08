@@ -1448,7 +1448,7 @@ export const apiService = {
 
     // 2. If user exists on server and password was incorrect, immediately throw error
     if (res && res.status === 401 && !errData?.notRegistered) {
-      const customErr: any = new Error(errData?.error || 'كلمة المرور غير صحيحة، يرجى كتابة نفس كلمة المرور التي اخترتها أثناء إنشاء الحساب أو النقر على "تغيير كلمة المرور"');
+      const customErr: any = new Error(errData?.error || 'كلمة المرور غير صحيحة');
       customErr.canReset = true;
       throw customErr;
     }
@@ -1485,7 +1485,7 @@ export const apiService = {
           serverStudent = syncData.user;
         } else {
           const syncErr = await syncRes.json().catch(() => null);
-          const customErr: any = new Error(syncErr?.error || 'كلمة المرور غير صحيحة، يرجى كتابة كلمة المرور التي اخترتها أثناء إنشاء الحساب أو النقر على "تغيير كلمة المرور"');
+          const customErr: any = new Error(syncErr?.error || 'كلمة المرور غير صحيحة');
           customErr.canReset = true;
           throw customErr;
         }

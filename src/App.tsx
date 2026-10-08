@@ -240,6 +240,7 @@ export default function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState<boolean>(false);
   const [activeFile, setActiveFile] = useState<FileItem | null>(null);
   const [isFoldersModalOpen, setIsFoldersModalOpen] = useState<boolean>(false);
 
@@ -500,6 +501,14 @@ export default function App() {
 
   const handlePlayVideo = (video: VideoItem) => {
     setActiveVideo(video);
+    if (layoutPreset === 'classic') {
+      setIsVideoModalOpen(true);
+    } else {
+      // Direct in-place playback inside stage on the left, without opening huge modal
+      if (video.sectionId && video.sectionId !== selectedSectionId) {
+        setSelectedSectionId(video.sectionId);
+      }
+    }
   };
 
   const handleOpenFile = (file: FileItem) => {
@@ -762,11 +771,11 @@ export default function App() {
     ? (rawLayoutPreset as PlatformLayoutPreset)
     : 'sidebar-split-right';
 
-  const rawThemePreset = savedThemeConfig?.preset || platformData.settings?.theme?.preset || 'emerald';
-  const themePreset = (rawThemePreset === 'cyan-ocean' || rawThemePreset === 'royal-blue') ? 'emerald' : rawThemePreset;
-  const borderRadius = savedThemeConfig?.borderRadius || platformData.settings?.theme?.borderRadius || 'standard';
-  const density = savedThemeConfig?.density || platformData.settings?.theme?.density || 'comfortable';
-  const fontScale = savedThemeConfig?.fontScale || platformData.settings?.theme?.fontScale || 'normal';
+  const rawThemePreset = platformData.settings?.theme?.preset || savedThemeConfig?.preset || 'midnight-dark';
+  const themePreset = rawThemePreset;
+  const borderRadius = platformData.settings?.theme?.borderRadius || savedThemeConfig?.borderRadius || 'standard';
+  const density = platformData.settings?.theme?.density || savedThemeConfig?.density || 'comfortable';
+  const fontScale = platformData.settings?.theme?.fontScale || savedThemeConfig?.fontScale || 'normal';
 
   return (
     <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 selection:bg-emerald-100 selection:text-emerald-900 font-['Cairo',sans-serif] transition-colors duration-200 overflow-x-clip w-full max-w-full theme-${themePreset} radius-${borderRadius} density-${density} font-scale-${fontScale}`}>
@@ -892,8 +901,8 @@ export default function App() {
               activeSectionId={selectedSectionId || platformData.sections[0]?.id || ''}
               activeVideo={activeVideo}
               onSelectSection={(secId) => setSelectedSectionId(secId)}
-              onSelectVideo={(_video) => {
-                // In-place playback inside left-side stage handled directly by SplitStudioLayout
+              onSelectVideo={(video) => {
+                setActiveVideo(video);
               }}
               onCloseInlineVideo={() => setActiveVideo(null)}
               onStartQuiz={handleStartQuiz}
@@ -904,7 +913,10 @@ export default function App() {
               }}
               onToggleBookmark={handleToggleBookmark}
               onToggleVideoComplete={handleToggleVideoComplete}
-              onOpenFullscreenVideo={(video) => handlePlayVideo(video)}
+              onOpenFullscreenVideo={(video) => {
+                setActiveVideo(video);
+                setIsVideoModalOpen(true);
+              }}
               onBackToSections={handleBackToSections}
             />
           ) : activeSection ? (
@@ -998,8 +1010,8 @@ export default function App() {
           />
         )}
 
-        {/* 2. Video Player Modal */}
-        {activeVideo && (
+        {/* 2. Video Player Modal (Only when explicitly opened in fullscreen or in classic layout) */}
+        {activeVideo && isVideoModalOpen && (
           <VideoPlayerModal
             video={activeVideo}
             linkedQuiz={platformData.quizzes.find(
@@ -1009,7 +1021,10 @@ export default function App() {
               (f) => f.id === activeVideo.linkedFileId || f.linkedVideoId === activeVideo.id
             )}
             isCompleted={Boolean(currentUser?.progress?.completedVideoIds?.includes(activeVideo.id))}
-            onClose={() => setActiveVideo(null)}
+            onClose={() => {
+              setIsVideoModalOpen(false);
+              setActiveVideo(null);
+            }}
             onToggleComplete={handleToggleVideoComplete}
             onStartQuiz={handleStartQuiz}
             onOpenFile={handleOpenFile}

@@ -734,6 +734,22 @@ export const AdminAppearanceTab: React.FC<AdminAppearanceTabProps> = ({
             );
           })}
         </div>
+
+        {/* Instant Save Color Bar */}
+        <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            اللون المحدد حالياً: <span className="font-bold text-slate-800 dark:text-white">{selectedPreset.name}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={isSaving}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-emerald-700/20"
+          >
+            <Save className="w-4 h-4" />
+            <span>{savedSuccess ? 'تم حفظ وتطبيق اللون فوراً!' : 'حفظ وتطبيق هذا اللون فوراً لجميع الطلاب'}</span>
+          </button>
+        </div>
       </div>
 
       {/* ================================================================ */}
